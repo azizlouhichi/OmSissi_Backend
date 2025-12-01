@@ -9,7 +9,7 @@ const { validateParentRegistration } = require('../middleware/validation');
 const { protect } = require('../middleware/authMiddleware');
 
 // Public routes
-router.post('/register', validateParentRegistration, registerParent);
+router.post('/register', registerParent);
 router.post('/login', loginParent);
 
 // Protected routes

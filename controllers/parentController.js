@@ -81,6 +81,7 @@ const loginParent = async (req, res) => {
           token: generateToken(parent._id)
         }
       });
+      console.log(`Parent logged in: ${res}`);
     } else {
       res.status(401).json({
         success: false,

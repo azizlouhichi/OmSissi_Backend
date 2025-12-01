@@ -46,6 +46,14 @@ const childSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  linkCode: {
+    type: String,
+    unique: true,
+    sparse: true  
+  },
+  linkExpiresAt: {
+    type: Date,
+  },
   createdAt: {
     type: Date,
     default: Date.now
