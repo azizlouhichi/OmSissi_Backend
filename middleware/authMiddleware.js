@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Parent = require('../models/Parent');
+const Child = require('../models/Child');
 
 const protect = async (req, res, next) => {
   try {
@@ -10,18 +11,34 @@ const protect = async (req, res, next) => {
       
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.parent = await Parent.findById(decoded.id).select('-password -parentalPIN');
+        
+        // ? Support both parent and child tokens
+        if (decoded.role === 'child') {
+          req.child = await Child.findById(decoded.childId);
+          req.parent = await Parent.findById(decoded.parentId).select('-password -parentalPIN');
+          req.userType = 'child';
+        } else {
+          req.parent = await Parent.findById(decoded.id).select('-password -parentalPIN');
+          req.userType = 'parent';
+        }
+        
+        if (!req.parent && !req.child) {
+          return res.status(401).json({
+            success: false,
+            message: 'User not found'
+          });
+        }
+        
         next();
       } catch (error) {
-        res.status(401).json({
+        console.error('Token verification error:', error);
+        return res.status(401).json({
           success: false,
           message: 'Not authorized, token failed'
         });
       }
-    }
-
-    if (!token) {
-      res.status(401).json({
+    } else {
+      return res.status(401).json({
         success: false,
         message: 'Not authorized, no token'
       });
@@ -35,4 +52,17 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+// ? Parent-only middleware
+const protectParent = async (req, res, next) => {
+  await protect(req, res, () => {
+    if (req.userType !== 'parent') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Parents only.'
+      });
+    }
+    next();
+  });
+};
+
+module.exports = { protect, protectParent };

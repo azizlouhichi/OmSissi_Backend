@@ -9,16 +9,17 @@ const {
   deleteStory
 } = require('../controllers/storyController');
 const { validateStoryCreation, validateStoryUpdate } = require('../middleware/storyValidation');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, protectParent } = require('../middleware/authMiddleware');
 
-// Toutes les routes protégées par l'authentification parent
-router.use(protect);
+// ? Both parents and children can create stories
+router.post('/', protect, validateStoryCreation, createStory);
+// ? Parents can update/delete stories
+router.put('/:id', protectParent, validateStoryUpdate, updateStory);
+router.delete('/:id', protectParent, deleteStory);
 
-router.post('/', validateStoryCreation, createStory);
-router.get('/', getStories);
-router.get('/child/:childId', getStoriesByChild);
-router.get('/:id', getStory);
-router.put('/:id', validateStoryUpdate, updateStory);
-router.delete('/:id', deleteStory);
+// ? Both parents and children can read stories
+router.get('/', protect, getStories);
+router.get('/child/:childId', protect, getStoriesByChild);
+router.get('/:id', protect, getStory);
 
 module.exports = router;

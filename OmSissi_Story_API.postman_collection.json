@@ -1,0 +1,817 @@
+{
+	"info": {
+		"_postman_id": "omsissi-story-api-2024",
+		"name": "OmSissi Story API",
+		"description": "Complete API collection for OmSissi Story CRUD operations with authentication",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register Parent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        pm.environment.set(\"token\", response.data.token);",
+									"        pm.environment.set(\"parentId\", response.data._id);",
+									"        console.log(\"Token saved:\", response.data.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Parent\",\n  \"email\": \"parent@test.com\",\n  \"password\": \"Test123!\",\n  \"parentalPIN\": \"1234\",\n  \"acceptedTerms\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/parents/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"register"
+							]
+						},
+						"description": "Register a new parent account"
+					},
+					"response": []
+				},
+				{
+					"name": "Login Parent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        pm.environment.set(\"token\", response.data.token);",
+									"        pm.environment.set(\"parentId\", response.data._id);",
+									"        console.log(\"Token saved:\", response.data.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"parent@test.com\",\n  \"password\": \"Test123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/parents/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"login"
+							]
+						},
+						"description": "Login to get authentication token"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Parent Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"profile"
+							]
+						},
+						"description": "Get authenticated parent's profile"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Child Link Code (QR)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/children/{{childId}}/link-code",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children",
+								"{{childId}}",
+								"link-code"
+							]
+						},
+						"description": "Get QR code data for child tablet linking"
+					},
+					"response": []
+				},
+				{
+					"name": "Link Child Tablet (Get Child Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        pm.environment.set(\"childToken\", response.data.token);",
+									"        pm.environment.set(\"linkedChildId\", response.data.child.id);",
+									"        console.log(\"Child Token saved:\", response.data.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"qrData\": \"OMSISI:YOUR_LINK_CODE_HERE\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/children/link-from-qr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children",
+								"link-from-qr"
+							]
+						},
+						"description": "Link child tablet using QR code and get child authentication token"
+					},
+					"response": []
+				}
+			],
+			"description": "Parent authentication endpoints"
+		},
+		{
+			"name": "Children",
+			"item": [
+				{
+					"name": "Create Child",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data._id) {",
+									"        pm.environment.set(\"childId\", response.data._id);",
+									"        console.log(\"Child ID saved:\", response.data._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Emma\",\n  \"age\": 5,\n  \"gender\": \"female\",\n  \"interests\": [\"princesses\", \"animals\", \"magic\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/children",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children"
+							]
+						},
+						"description": "Create a child profile (required for stories)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Children",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/children",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children"
+							]
+						},
+						"description": "Get all children for authenticated parent"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Child by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/children/{{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children",
+								"{{childId}}"
+							]
+						},
+						"description": "Get specific child by ID"
+					},
+					"response": []
+				}
+			],
+			"description": "Child management endpoints"
+		},
+		{
+			"name": "Stories",
+			"item": [
+				{
+					"name": "Create Story",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data._id) {",
+									"        pm.environment.set(\"storyId\", response.data._id);",
+									"        console.log(\"Story ID saved:\", response.data._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"childId\": \"{{childId}}\",\n  \"title\": \"La Princesse et le Dragon Magique\",\n  \"pages\": [\n    \"Il était une fois une princesse nommée Emma qui vivait dans un château enchanté.\",\n    \"Un jour, elle rencontra un gentil dragon qui aimait jouer avec les enfants.\",\n    \"Ensemble, ils partirent à l'aventure dans la forêt magique.\",\n    \"Ils découvrirent un trésor caché rempli de merveilles.\",\n    \"Ils vécurent heureux pour toujours. Fin.\"\n  ],\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\"],\n  \"language\": \"fr\",\n  \"source\": \"ai\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "Create a new story for a child"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Story (Child)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data._id) {",
+									"        pm.environment.set(\"storyId\", response.data._id);",
+									"        console.log(\"Story ID saved:\", response.data._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Mon Aventure Magique\",\n  \"pages\": [\n    \"Aujourd'hui, j'ai vécu une aventure incroyable!\",\n    \"J'ai rencontré un petit lapin qui parlait.\",\n    \"Il m'a montré un jardin secret rempli de fleurs colorées.\",\n    \"Nous avons dansé et joué toute la journée.\",\n    \"C'était le plus beau jour de ma vie!\"\n  ],\n  \"keywords\": [\"aventure\", \"lapin\", \"jardin\", \"magie\"],\n  \"language\": \"fr\",\n  \"source\": \"manual\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "Child creates their own story (childId not needed)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Stories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "Get all stories for authenticated parent"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Stories (with pagination)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories?limit=10&page=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Get stories with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Stories for Specific Child",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories?childId={{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							],
+							"query": [
+								{
+									"key": "childId",
+									"value": "{{childId}}"
+								}
+							]
+						},
+						"description": "Filter stories by child ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Story by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/{{storyId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"{{storyId}}"
+							]
+						},
+						"description": "Get a specific story by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Stories by Child ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/child/{{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"child",
+								"{{childId}}"
+							]
+						},
+						"description": "Get all stories for a specific child"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Story",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"La Princesse et le Dragon - Version 2\",\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\", \"amitié\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/stories/{{storyId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"{{storyId}}"
+							]
+						},
+						"description": "Update an existing story"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Story",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/{{storyId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"{{storyId}}"
+							]
+						},
+						"description": "Delete a story"
+					},
+					"response": []
+				}
+			],
+			"description": "Story CRUD operations"
+		},
+		{
+			"name": "Child Stories (with Child Token)",
+			"item": [
+				{
+					"name": "Get Child Stories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "Get stories using child token (only shows child's own stories)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Child Story by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/{{storyId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"{{storyId}}"
+							]
+						},
+						"description": "Get specific story using child token"
+					},
+					"response": []
+				},
+				{
+					"name": "Try Create Story (Should Fail)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"childId\": \"{{linkedChildId}}\",\n  \"title\": \"Test Story\",\n  \"content\": \"This should fail because children cannot create stories.\",\n  \"keywords\": [\"test\"],\n  \"language\": \"fr\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "This should return 403 - Access denied. Parents only."
+					},
+					"response": []
+				}
+			],
+			"description": "Test child authentication and read-only access to stories"
+		},
+		{
+			"name": "AI Story Generation",
+			"item": [
+				{
+					"name": "Generate Story with AI",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"character\": \"princess\",\n  \"place\": \"castle\",\n  \"object\": \"magic wand\",\n  \"value\": \"courage\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/generate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"generate"
+							]
+						},
+						"description": "Generate a story using AI (Falcon model)"
+					},
+					"response": []
+				}
+			],
+			"description": "AI-powered story generation"
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Test API",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"test"
+							]
+						},
+						"description": "Check if API is running"
+					},
+					"response": []
+				}
+			],
+			"description": "API health check endpoints"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	]
+}

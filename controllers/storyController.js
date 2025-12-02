@@ -3,33 +3,67 @@ const Child = require('../models/Child');
 
 // @desc    Créer une nouvelle histoire
 // @route   POST /api/stories
-// @access  Private (Parent)
+// @access  Private (Parent or Child)
 const createStory = async (req, res) => {
   try {
     const { childId, title, pages, keywords, language, source } = req.body;
 
-    // Vérifier que l'enfant existe et appartient au parent
-    const child = await Child.findOne({
-      _id: childId,
-      parentId: req.parent._id
-    });
+    let parentId, targetChildId;
 
-    if (!child) {
-      return res.status(404).json({
+    // Check if it's a child creating their own story
+    if (req.child) {
+      // Child can only create stories for themselves
+      if (childId && childId !== req.child._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez créer des histoires que pour vous-même'
+        });
+      }
+      
+      targetChildId = req.child._id;
+      parentId = req.child.parentId;
+      
+    } else if (req.parent) {
+      // Parent creating a story for their child
+      if (!childId) {
+        return res.status(400).json({
+          success: false,
+          message: 'L\'ID de l\'enfant est requis'
+        });
+      }
+
+      // Verify child exists and belongs to parent
+      const child = await Child.findOne({
+        _id: childId,
+        parentId: req.parent._id
+      });
+
+      if (!child) {
+        return res.status(404).json({
+          success: false,
+          message: 'Enfant non trouvé ou non autorisé'
+        });
+      }
+
+      targetChildId = child._id;
+      parentId = req.parent._id;
+      
+    } else {
+      return res.status(401).json({
         success: false,
-        message: 'Enfant non trouvé ou non autorisé'
+        message: 'Authentification requise'
       });
     }
 
-    // Créer l'histoire
+    // Create the story
     const story = await Story.create({
-      childId,
-      parentId: req.parent._id,
+      childId: targetChildId,
+      parentId: parentId,
       title,
       pages,
       keywords: keywords || [],
       language: language || 'fr',
-      source: source || 'ai'
+      source: source || 'manual'
     });
 
     res.status(201).json({

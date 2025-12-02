@@ -2,8 +2,7 @@ const { body, validationResult } = require('express-validator');
 
 const validateStoryCreation = [
   body('childId')
-    .notEmpty()
-    .withMessage('L\'ID de l\'enfant est requis')
+    .optional()
     .isMongoId()
     .withMessage('ID enfant invalide'),
   
