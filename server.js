@@ -21,6 +21,7 @@ app.use(express.urlencoded({ extended: false }));
 // Routes
 app.use('/api/parents', require('./routes/parentRoutes'));
 app.use('/api/children', require('./routes/childRoutes')); 
+app.use('/api/stories', require('./routes/storyRoutes')); 
 
 // Test route
 app.get('/api/test', (req, res) => {
