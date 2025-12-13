@@ -78,7 +78,7 @@ const getChildren = async (req, res) => {
   try {
     const children = await Child.find({ parentId: req.parent._id })
       .sort({ createdAt: -1 });
-
+console.log(req)
     res.json({
       success: true,
       count: children.length,

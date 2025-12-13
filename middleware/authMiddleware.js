@@ -64,5 +64,38 @@ const protectParent = async (req, res, next) => {
     next();
   });
 };
+// Add this new middleware to protect child-specific routes
+const protectChild = async (req, res, next) => {
+  let token;
 
-module.exports = { protect, protectParent };
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Verify it's a child session token
+      if (decoded.type !== 'child_session') {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authorized - child session required'
+        });
+      }
+
+      req.parentId = decoded.parentId;
+      req.childId = decoded.childId;
+      next();
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized - invalid token'
+      });
+    }
+  } else {
+    return res.status(401).json({
+      success: false,
+      message: 'Not authorized - no token'
+    });
+  }
+};
+
+module.exports = { protect, protectParent, protectChild };

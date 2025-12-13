@@ -125,9 +125,58 @@ const getParentProfile = async (req, res) => {
     });
   }
 };
+// @desc    Switch to child profile (generate child-scoped token)
+// @route   POST /api/parents/switch-child/:childId
+// @access  Private (parent must be authenticated)
+const switchToChild = async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const parentId = req.parent._id;
 
+    // Verify child belongs to this parent
+    const Child = require('../models/Child');
+    const child = await Child.findOne({ _id: childId, parent: parentId });
+
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child not found or does not belong to this parent'
+      });
+    }
+
+    // Generate a child-scoped token (includes both parent and child ID)
+    const childToken = jwt.sign(
+      { 
+        parentId: parentId,
+        childId: child._id,
+        type: 'child_session'
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Switched to child profile successfully',
+      data: {
+        childId: child._id,
+        childName: child.name,
+        childEmoji: child.emoji,
+        childToken: childToken
+      }
+    });
+  } catch (error) {
+    console.error('Switch child error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during child switch',
+      error: error.message
+    });
+  }
+};
 module.exports = {
   registerParent,
   loginParent,
-  getParentProfile
+  getParentProfile,
+   switchToChild 
 };
