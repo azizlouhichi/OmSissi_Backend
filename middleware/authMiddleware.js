@@ -8,27 +8,44 @@ const protect = async (req, res, next) => {
 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-      
+
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // ? Support both parent and child tokens
+
+        // ? Support both parent and child tokens, as well as child session tokens
         if (decoded.role === 'child') {
           req.child = await Child.findById(decoded.childId);
           req.parent = await Parent.findById(decoded.parentId).select('-password -parentalPIN');
           req.userType = 'child';
-        } else {
+        }
+        // Handle child session tokens (when parent switches to child)
+        else if (decoded.type === 'child_session' && decoded.parentId && decoded.childId) {
+          // Verify that the parent owns the child
+          const child = await Child.findOne({ _id: decoded.childId, parentId: decoded.parentId });
+          if (!child) {
+            return res.status(401).json({
+              success: false,
+              message: 'Invalid child session - child does not belong to parent'
+            });
+          }
+
+          req.parent = await Parent.findById(decoded.parentId).select('-password -parentalPIN');
+          req.child = child;
+          req.userType = 'child_session'; // Mark as parent viewing as child
+          req.isParentAsChild = true; // Flag to identify parent viewing as child
+        }
+        else {
           req.parent = await Parent.findById(decoded.id).select('-password -parentalPIN');
           req.userType = 'parent';
         }
-        
+
         if (!req.parent && !req.child) {
           return res.status(401).json({
             success: false,
             message: 'User not found'
           });
         }
-        
+
         next();
       } catch (error) {
         console.error('Token verification error:', error);
@@ -55,7 +72,8 @@ const protect = async (req, res, next) => {
 // ? Parent-only middleware
 const protectParent = async (req, res, next) => {
   await protect(req, res, () => {
-    if (req.userType !== 'parent') {
+    if (req.userType !== 'parent' && req.userType !== 'child_session') {
+      // Allow child session tokens too since parent is viewing as child
       return res.status(403).json({
         success: false,
         message: 'Access denied. Parents only.'
@@ -64,6 +82,20 @@ const protectParent = async (req, res, next) => {
     next();
   });
 };
+
+// ? Child-only middleware (for actual child tokens only)
+const protectChildOnly = async (req, res, next) => {
+  await protect(req, res, () => {
+    if (req.userType !== 'child') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Children only.'
+      });
+    }
+    next();
+  });
+};
+
 // Add this new middleware to protect child-specific routes
 const protectChild = async (req, res, next) => {
   let token;
@@ -98,4 +130,4 @@ const protectChild = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, protectParent, protectChild };
+module.exports = { protect, protectParent, protectChildOnly, protectChild };

@@ -100,10 +100,22 @@ console.log(req)
 // @access  Private (Parent)
 const getChild = async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.id,
-      parentId: req.parent._id
-    });
+    let child;
+
+    // If parent is viewing as child, allow access to the specific child
+    if (req.userType === 'child_session') {
+      child = await Child.findOne({
+        _id: req.params.id,
+        parentId: req.parent._id
+      });
+    }
+    // If regular parent, verify child belongs to them
+    else {
+      child = await Child.findOne({
+        _id: req.params.id,
+        parentId: req.parent._id
+      });
+    }
 
     if (!child) {
       return res.status(404).json({

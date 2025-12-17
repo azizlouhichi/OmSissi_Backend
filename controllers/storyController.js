@@ -1,7 +1,7 @@
 const Story = require('../models/Story');
 const Child = require('../models/Child');
 
-// @desc    Créer une nouvelle histoire
+// @desc    Crï¿½er une nouvelle histoire
 // @route   POST /api/stories
 // @access  Private (Parent or Child)
 const createStory = async (req, res) => {
@@ -16,13 +16,13 @@ const createStory = async (req, res) => {
       if (childId && childId !== req.child._id.toString()) {
         return res.status(403).json({
           success: false,
-          message: 'Vous ne pouvez créer des histoires que pour vous-même'
+          message: 'Vous ne pouvez crï¿½er des histoires que pour vous-mï¿½me'
         });
       }
-      
+
       targetChildId = req.child._id;
       parentId = req.child.parentId;
-      
+
     } else if (req.parent) {
       // Parent creating a story for their child
       if (!childId) {
@@ -41,13 +41,13 @@ const createStory = async (req, res) => {
       if (!child) {
         return res.status(404).json({
           success: false,
-          message: 'Enfant non trouvé ou non autorisé'
+          message: 'Enfant non trouvï¿½ ou non autorisï¿½'
         });
       }
 
       targetChildId = child._id;
       parentId = req.parent._id;
-      
+
     } else {
       return res.status(401).json({
         success: false,
@@ -68,15 +68,15 @@ const createStory = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Histoire créée avec succès',
+      message: 'Histoire crï¿½ï¿½e avec succï¿½s',
       data: story
     });
 
   } catch (error) {
-    console.error('Erreur création histoire:', error);
+    console.error('Erreur crï¿½ation histoire:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la création de l\'histoire',
+      message: 'Erreur serveur lors de la crï¿½ation de l\'histoire',
       error: error.message
     });
   }
@@ -90,17 +90,22 @@ const getStories = async (req, res) => {
     const { childId, limit = 20, page = 1 } = req.query;
 
     let query = {};
-    
+
     // If child token, only show their stories
     if (req.userType === 'child') {
       query.childId = req.child._id;
-    } 
+    }
     // If parent token, show all their children's stories
     else if (req.userType === 'parent') {
       query.parentId = req.parent._id;
       if (childId) {
         query.childId = childId;
       }
+    }
+    // If parent viewing as child (child session)
+    else if (req.userType === 'child_session') {
+      // Only show stories for the specific child being viewed as
+      query.childId = req.child._id;
     }
 
     const stories = await Story.find(query)
@@ -121,29 +126,33 @@ const getStories = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur récupération histoires:', error);
+    console.error('Erreur rï¿½cupï¿½ration histoires:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la récupération des histoires',
+      message: 'Erreur serveur lors de la rï¿½cupï¿½ration des histoires',
       error: error.message
     });
   }
 };
 
-// @desc    Obtenir une histoire spécifique
+// @desc    Obtenir une histoire spï¿½cifique
 // @route   GET /api/stories/:id
 // @access  Private (Parent or Child)
 const getStory = async (req, res) => {
   try {
     let query = { _id: req.params.id };
-    
+
     // Child can only see their own stories
     if (req.userType === 'child') {
       query.childId = req.child._id;
-    } 
+    }
     // Parent can see all their children's stories
     else if (req.userType === 'parent') {
       query.parentId = req.parent._id;
+    }
+    // Parent viewing as child can only see the child's stories
+    else if (req.userType === 'child_session') {
+      query.childId = req.child._id;
     }
 
     const story = await Story.findOne(query).populate('childId', 'firstName age gender');
@@ -151,7 +160,7 @@ const getStory = async (req, res) => {
     if (!story) {
       return res.status(404).json({
         success: false,
-        message: 'Histoire non trouvée'
+        message: 'Histoire non trouvï¿½e'
       });
     }
 
@@ -161,16 +170,16 @@ const getStory = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur récupération histoire:', error);
+    console.error('Erreur rï¿½cupï¿½ration histoire:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la récupération de l\'histoire',
+      message: 'Erreur serveur lors de la rï¿½cupï¿½ration de l\'histoire',
       error: error.message
     });
   }
 };
 
-// @desc    Obtenir les histoires d'un enfant spécifique
+// @desc    Obtenir les histoires d'un enfant spï¿½cifique
 // @route   GET /api/stories/child/:childId
 // @access  Private (Parent or Child)
 const getStoriesByChild = async (req, res) => {
@@ -181,7 +190,7 @@ const getStoriesByChild = async (req, res) => {
     if (req.userType === 'child' && req.child._id.toString() !== childId) {
       return res.status(403).json({
         success: false,
-        message: 'Accès refusé'
+        message: 'Accï¿½s refusï¿½'
       });
     }
 
@@ -195,7 +204,7 @@ const getStoriesByChild = async (req, res) => {
       if (!child) {
         return res.status(404).json({
           success: false,
-          message: 'Enfant non trouvé ou non autorisé'
+          message: 'Enfant non trouvï¿½ ou non autorisï¿½'
         });
       }
     }
@@ -211,16 +220,16 @@ const getStoriesByChild = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur récupération histoires enfant:', error);
+    console.error('Erreur rï¿½cupï¿½ration histoires enfant:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la récupération des histoires',
+      message: 'Erreur serveur lors de la rï¿½cupï¿½ration des histoires',
       error: error.message
     });
   }
 };
 
-// @desc    Mettre à jour une histoire
+// @desc    Mettre ï¿½ jour une histoire
 // @route   PUT /api/stories/:id
 // @access  Private (Parent)
 const updateStory = async (req, res) => {
@@ -240,21 +249,21 @@ const updateStory = async (req, res) => {
     if (!story) {
       return res.status(404).json({
         success: false,
-        message: 'Histoire non trouvée'
+        message: 'Histoire non trouvï¿½e'
       });
     }
 
     res.json({
       success: true,
-      message: 'Histoire mise à jour avec succès',
+      message: 'Histoire mise ï¿½ jour avec succï¿½s',
       data: story
     });
 
   } catch (error) {
-    console.error('Erreur mise à jour histoire:', error);
+    console.error('Erreur mise ï¿½ jour histoire:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la mise à jour de l\'histoire',
+      message: 'Erreur serveur lors de la mise ï¿½ jour de l\'histoire',
       error: error.message
     });
   }
@@ -273,13 +282,13 @@ const deleteStory = async (req, res) => {
     if (!story) {
       return res.status(404).json({
         success: false,
-        message: 'Histoire non trouvée'
+        message: 'Histoire non trouvï¿½e'
       });
     }
 
     res.json({
       success: true,
-      message: 'Histoire supprimée avec succès'
+      message: 'Histoire supprimï¿½e avec succï¿½s'
     });
 
   } catch (error) {
