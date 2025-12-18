@@ -18,6 +18,7 @@ const createChild = async (req, res) => {
       preferredVoice = 'Om Sisi',
       safeMode = true
     } = req.body;
+    console.log(req)
 
     // Vérifier que le parent existe
     const parent = await Parent.findById(req.parent._id);
@@ -393,7 +394,7 @@ module.exports = {
   getChild,
   updateChild,
   deleteChild,
-  getChildrenNames ,// ← Ajouter cette ligne
+  getChildrenNames ,
   getChildLinkCode,
   linkChildFromQr,
 };

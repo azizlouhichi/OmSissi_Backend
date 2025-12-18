@@ -14,7 +14,11 @@ dotenv.config();
 connectDB();
 
 // Middleware - Use express.json() instead of bodyParser.json() for newer Express versions
-app.use(cors());
+// Allow Authorization header in CORS
+app.use(cors({
+  origin: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -22,8 +26,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use('/api/parents', require('./routes/parentRoutes'));
 app.use('/api/children', require('./routes/childRoutes')); 
 app.use('/api/stories', require('./routes/storyRoutes')); 
-
-// Test route
+app.use('/api/admin', require('./routes/adminRoutes'));
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Story App API is running!' });
 });

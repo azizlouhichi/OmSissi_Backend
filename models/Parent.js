@@ -28,8 +28,16 @@ const parentSchema = new mongoose.Schema({
   parentalPIN: {
     type: String,
     required: [true, 'Parental PIN is required'],
-    length: [4, 'PIN must be exactly 4 digits'],
-    match: [/^\d{4}$/, 'PIN must contain only digits']
+    validate: {
+      validator: function(v) {
+        // Allow either a plain 4-digit PIN (during creation) or a bcrypt hash (when stored)
+        if (!v) return false;
+        const isPlain = /^\d{4}$/.test(v);
+        const isHash = typeof v === 'string' && v.startsWith('$2');
+        return isPlain || isHash;
+      },
+      message: 'PIN must be exactly 4 digits'
+    }
   },
   acceptedTerms: {
     type: Boolean,
