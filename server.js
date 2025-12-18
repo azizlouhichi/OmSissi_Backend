@@ -4,6 +4,7 @@ const cors = require("cors");
 const dotenv = require('dotenv');
 const { spawn } = require("child_process");
 const connectDB = require('./config/database');
+const { initializePlans } = require('./utils/stripe');
 
 const app = express();
 
@@ -12,6 +13,11 @@ dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Initialize subscription plans
+initializePlans().catch(err => {
+  console.error('Error initializing subscription plans:', err.message);
+});
 
 // Middleware - Use express.json() instead of bodyParser.json() for newer Express versions
 // Allow Authorization header in CORS
@@ -24,9 +30,12 @@ app.use(express.urlencoded({ extended: false }));
 
 // Routes
 app.use('/api/parents', require('./routes/parentRoutes'));
-app.use('/api/children', require('./routes/childRoutes')); 
 app.use('/api/stories', require('./routes/storyRoutes')); 
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/children', require('./routes/childRoutes'));
+app.use('/api/subscriptions', require('./routes/subscriptionRoutes'));
+
+// Test route
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Story App API is running!' });
 });

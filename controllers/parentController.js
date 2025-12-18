@@ -30,7 +30,8 @@ const registerParent = async (req, res) => {
       email,
       password,
       parentalPIN,
-      acceptedTerms: acceptedTerms === 'true'
+      acceptedTerms: acceptedTerms === 'true',
+      plan: 'free' // New users start with free plan
     });
 
     if (parent) {
@@ -42,6 +43,7 @@ const registerParent = async (req, res) => {
           firstName: parent.firstName,
           lastName: parent.lastName,
           email: parent.email,
+          plan: parent.plan,
           token: generateToken(parent._id)
         }
       });
@@ -79,6 +81,7 @@ const loginParent = async (req, res) => {
           firstName: parent.firstName,
           lastName: parent.lastName,
           email: parent.email,
+          plan: parent.plan,
           token: generateToken(parent._id)
         }
       });
@@ -104,12 +107,17 @@ const loginParent = async (req, res) => {
 // @access  Private
 const getParentProfile = async (req, res) => {
   try {
-    const parent = await Parent.findById(req.parent._id).select('-password -parentalPIN');
-    
+    const parent = await Parent.findById(req.parent._id)
+      .select('-password -parentalPIN')
+      .populate('subscriptionId', 'planName status startDate endDate cancelAtPeriodEnd');
+
     if (parent) {
       res.json({
         success: true,
-        data: parent
+        data: {
+          ...parent.toObject(),
+          currentPlan: parent.plan
+        }
       });
     } else {
       res.status(404).json({

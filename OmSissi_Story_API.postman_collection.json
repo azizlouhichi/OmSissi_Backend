@@ -1009,6 +1009,192 @@
 				}
 			],
 			"description": "API health check endpoints"
+		},
+		{
+			"name": "Subscriptions",
+			"item": [
+				{
+					"name": "Get Available Plans",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/subscriptions/plans",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"subscriptions",
+								"plans"
+							]
+						},
+						"description": "Get all available subscription plans"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Subscription",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/subscriptions/my-subscription",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"subscriptions",
+								"my-subscription"
+							]
+						},
+						"description": "Get current authenticated user's subscription details"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Checkout Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.url) {",
+									"        console.log('Checkout URL:', response.data.url);",
+									"        // Note: You would need to redirect the user to this URL in your frontend",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"planId\": \"\",\n  \"planName\": \"basic\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/subscriptions/create-checkout-session",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"subscriptions",
+								"create-checkout-session"
+							]
+						},
+						"description": "Create a Stripe checkout session for plan upgrade (replace planId with actual plan ID from /api/subscriptions/plans)"
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Subscription",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/subscriptions/cancel-subscription",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"subscriptions",
+								"cancel-subscription"
+							]
+						},
+						"description": "Cancel the current active subscription (cancels at period end)"
+					},
+					"response": []
+				},
+				{
+					"name": "Resume Subscription",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/subscriptions/resume-subscription",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"subscriptions",
+								"resume-subscription"
+							]
+						},
+						"description": "Resume a cancelled subscription if it's set to cancel at period end"
+					},
+					"response": []
+				}
+			],
+			"description": "Subscription management endpoints"
 		}
 	],
 	"event": [
