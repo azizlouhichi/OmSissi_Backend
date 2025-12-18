@@ -1,7 +1,7 @@
 {
 	"info": {
-		"_postman_id": "omsissi-story-api-2024",
-		"name": "OmSissi Story API",
+		"_postman_id": "omsissi-story-api-2025",
+		"name": "OmSissi Story API QWEN",
 		"description": "Complete API collection for OmSissi Story CRUD operations with authentication",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -135,6 +135,120 @@
 					"response": []
 				},
 				{
+					"name": "Switch to Child Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.childToken) {",
+									"        pm.environment.set(\"childSessionToken\", response.data.childToken);",
+									"        pm.environment.set(\"switchedChildId\", response.data.childId);",
+									"        console.log(\"Child session token saved for parent viewing as child:\", response.data.childToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/switch-child/{{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"switch-child",
+								"{{childId}}"
+							]
+						},
+						"description": "Switch to child profile to view content as the child"
+					},
+					"response": []
+				},
+				{
+					"name": "Switch Back to Parent Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.parentToken) {",
+									"        pm.environment.set(\"token\", response.data.parentToken);",
+									"        console.log(\"Switched back to parent token:\", response.data.parentToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/switch-back",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"switch-back"
+							]
+						},
+						"description": "Switch back to parent profile from child session"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current Child Profile (in child session)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/current-child",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"parents",
+								"current-child"
+							]
+						},
+						"description": "Get the profile of the child currently being viewed as (when in child session)"
+					},
+					"response": []
+				},
+				{
 					"name": "Get Child Link Code (QR)",
 					"request": {
 						"method": "GET",
@@ -214,7 +328,7 @@
 					"response": []
 				}
 			],
-			"description": "Parent authentication endpoints"
+			"description": "Parent authentication and child switching endpoints"
 		},
 		{
 			"name": "Children",
@@ -360,7 +474,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"childId\": \"{{childId}}\",\n  \"title\": \"La Princesse et le Dragon Magique\",\n  \"pages\": [\n    \"Il était une fois une princesse nommée Emma qui vivait dans un château enchanté.\",\n    \"Un jour, elle rencontra un gentil dragon qui aimait jouer avec les enfants.\",\n    \"Ensemble, ils partirent à l'aventure dans la forêt magique.\",\n    \"Ils découvrirent un trésor caché rempli de merveilles.\",\n    \"Ils vécurent heureux pour toujours. Fin.\"\n  ],\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\"],\n  \"language\": \"fr\",\n  \"source\": \"ai\"\n}"
+							"raw": "{\n  \"childId\": \"{{childId}}\",\n  \"title\": \"La Princesse et le Dragon Magique\",\n  \"pages\": [\n    \"Il ï¿½tait une fois une princesse nommï¿½e Emma qui vivait dans un chï¿½teau enchantï¿½.\",\n    \"Un jour, elle rencontra un gentil dragon qui aimait jouer avec les enfants.\",\n    \"Ensemble, ils partirent ï¿½ l'aventure dans la forï¿½t magique.\",\n    \"Ils dï¿½couvrirent un trï¿½sor cachï¿½ rempli de merveilles.\",\n    \"Ils vï¿½curent heureux pour toujours. Fin.\"\n  ],\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\"],\n  \"language\": \"fr\",\n  \"source\": \"ai\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/stories",
@@ -410,7 +524,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"Mon Aventure Magique\",\n  \"pages\": [\n    \"Aujourd'hui, j'ai vécu une aventure incroyable!\",\n    \"J'ai rencontré un petit lapin qui parlait.\",\n    \"Il m'a montré un jardin secret rempli de fleurs colorées.\",\n    \"Nous avons dansé et joué toute la journée.\",\n    \"C'était le plus beau jour de ma vie!\"\n  ],\n  \"keywords\": [\"aventure\", \"lapin\", \"jardin\", \"magie\"],\n  \"language\": \"fr\",\n  \"source\": \"manual\"\n}"
+							"raw": "{\n  \"title\": \"Mon Aventure Magique\",\n  \"pages\": [\n    \"Aujourd'hui, j'ai vï¿½cu une aventure incroyable!\",\n    \"J'ai rencontrï¿½ un petit lapin qui parlait.\",\n    \"Il m'a montrï¿½ un jardin secret rempli de fleurs colorï¿½es.\",\n    \"Nous avons dansï¿½ et jouï¿½ toute la journï¿½e.\",\n    \"C'ï¿½tait le plus beau jour de ma vie!\"\n  ],\n  \"keywords\": [\"aventure\", \"lapin\", \"jardin\", \"magie\"],\n  \"language\": \"fr\",\n  \"source\": \"manual\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/stories",
@@ -587,7 +701,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"La Princesse et le Dragon - Version 2\",\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\", \"amitié\"]\n}"
+							"raw": "{\n  \"title\": \"La Princesse et le Dragon - Version 2\",\n  \"keywords\": [\"princesse\", \"dragon\", \"magie\", \"aventure\", \"amitiï¿½\"]\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/stories/{{storyId}}",
@@ -727,6 +841,116 @@
 				}
 			],
 			"description": "Test child authentication and read-only access to stories"
+		},
+		{
+			"name": "Parent Viewing as Child (Child Session Token)",
+			"item": [
+				{
+					"name": "Get Stories as Child (Child Session Token)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories"
+							]
+						},
+						"description": "Get stories using child session token (parent viewing as child) - shows only the child's stories"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Story by ID (Child Session Token)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/{{storyId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"{{storyId}}"
+							]
+						},
+						"description": "Get specific story using child session token (parent viewing as child)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Child Stories by Child ID (Child Session Token)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/stories/child/{{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"stories",
+								"child",
+								"{{childId}}"
+							]
+						},
+						"description": "Get all stories for a specific child using child session token (parent viewing as child)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Child Profile (Child Session Token)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{childSessionToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/children/{{childId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"children",
+								"{{childId}}"
+							]
+						},
+						"description": "Get specific child profile using child session token (parent viewing as child)"
+					},
+					"response": []
+				}
+			],
+			"description": "Test child session token functionality (parent viewing as child)"
 		},
 		{
 			"name": "AI Story Generation",

@@ -30,6 +30,9 @@ router.post('/login', loginParent);
 
 // ==================== PROTECTED ROUTES (Parent only) ====================
 router.get('/profile', protect, getParentProfile);
+router.post('/switch-child/:childId', protect, switchToChild);
+router.post('/switch-back', protect, switchBackToParent);
+router.get('/current-child', protect, getCurrentChildProfile);
 
 // ==================== ADMIN ROUTES ====================
 // Parent management routes
