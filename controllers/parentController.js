@@ -7,8 +7,6 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// ==================== PARENT AUTH APIs ====================
-
 // @desc    Register a new parent
 // @route   POST /api/parents/register
 // @access  Public
@@ -247,81 +245,6 @@ const getParentById = async (req, res) => {
   }
 };
 
-// @desc    Create parent (Admin)
-// @route   POST /api/parents
-// @access  Private/Admin
-const createParent = async (req, res) => {
-  try {
-    const { firstName, lastName, email, password, parentalPIN, phone, subscription, children } = req.body;
-
-    // Check if parent already exists
-    const parentExists = await Parent.findOne({ email });
-    if (parentExists) {
-      return res.status(400).json({
-        success: false,
-        message: 'Parent already exists with this email'
-      });
-    }
-
-    // Create new parent
-    const parent = await Parent.create({
-      firstName,
-      lastName,
-      email,
-      password,
-      parentalPIN,
-      phone,
-      subscription: subscription || 'Basic',
-      acceptedTerms: true // Admin creation assumes terms accepted
-    });
-
-    // Create children if provided
-    if (children && children.length > 0) {
-      const validChildren = children.filter(child => 
-        child.firstName && child.firstName.trim() && child.lastName && child.lastName.trim()
-      );
-      
-      if (validChildren.length > 0) {
-        const childrenData = validChildren.map(child => ({
-          ...child,
-          parentId: parent._id
-        }));
-        
-        const createdChildren = await Child.insertMany(childrenData);
-        
-        // Link children to parent
-        parent.childrenProfiles = createdChildren.map(child => child._id);
-        await parent.save();
-      }
-    }
-
-    const parentResponse = await Parent.findById(parent._id)
-      .select('-password -parentalPIN')
-      .populate('childrenProfiles');
-
-    res.status(201).json({
-      success: true,
-      message: 'Parent created successfully',
-      data: parentResponse
-    });
-
-  } catch (error) {
-    console.error('Create parent error:', error);
-    
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Parent already exists with this email'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error while creating parent'
-    });
-  }
-};
-
 // @desc    Update parent (Admin)
 // @route   PUT /api/parents/:id
 // @access  Private/Admin
@@ -435,7 +358,7 @@ const deleteParent = async (req, res) => {
 // @desc    Get parents statistics (Admin)
 // @route   GET /api/parents/stats/overview
 // @access  Private/Admin
-const getParentsStats = async (_, res) => {
+const getParentsStats = async (req, res) => {
   try {
     const totalParents = await Parent.countDocuments();
     const activeParents = await Parent.countDocuments({ isActive: true });
@@ -469,6 +392,81 @@ const getParentsStats = async (_, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching statistics'
+    });
+  }
+};
+
+// @desc    Create parent (Admin)
+// @route   POST /api/parents
+// @access  Private/Admin
+const createParent = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, parentalPIN, phone, subscription, children } = req.body;
+
+    // Check if parent already exists
+    const parentExists = await Parent.findOne({ email });
+    if (parentExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parent already exists with this email'
+      });
+    }
+
+    // Create new parent
+    const parent = await Parent.create({
+      firstName,
+      lastName,
+      email,
+      password,
+      parentalPIN,
+      phone,
+      subscription: subscription || 'Basic',
+      acceptedTerms: true // Admin creation assumes terms accepted
+    });
+
+    // Create children if provided
+    if (children && children.length > 0) {
+      const validChildren = children.filter(child => 
+        child.firstName && child.firstName.trim() && child.lastName && child.lastName.trim()
+      );
+      
+      if (validChildren.length > 0) {
+        const childrenData = validChildren.map(child => ({
+          ...child,
+          parentId: parent._id
+        }));
+        
+        const createdChildren = await Child.insertMany(childrenData);
+        
+        // Link children to parent
+        parent.childrenProfiles = createdChildren.map(child => child._id);
+        await parent.save();
+      }
+    }
+
+    const parentResponse = await Parent.findById(parent._id)
+      .select('-password -parentalPIN')
+      .populate('childrenProfiles');
+
+    res.status(201).json({
+      success: true,
+      message: 'Parent created successfully',
+      data: parentResponse
+    });
+
+  } catch (error) {
+    console.error('Create parent error:', error);
+    
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parent already exists with this email'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while creating parent'
     });
   }
 };
@@ -615,46 +613,6 @@ const updateChild = async (req, res) => {
   }
 };
 
-// @desc    Delete child (Admin)
-// @route   DELETE /api/parents/:parentId/children/:childId
-// @access  Private/Admin
-const deleteChild = async (req, res) => {
-  try {
-    const { parentId, childId } = req.params;
-
-    // Check if child exists and belongs to parent
-    const child = await Child.findOne({ _id: childId, parentId: parentId });
-    if (!child) {
-      return res.status(404).json({
-        success: false,
-        message: 'Child not found or does not belong to this parent'
-      });
-    }
-
-    // Remove child from parent's childrenProfiles array
-    await Parent.findByIdAndUpdate(parentId, {
-      $pull: { childrenProfiles: childId }
-    });
-
-    // Delete child
-    await Child.findByIdAndDelete(childId);
-
-    res.status(200).json({
-      success: true,
-      message: 'Child deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Delete child error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while deleting child'
-    });
-  }
-};
-
-// ==================== CHILD SESSION APIs ====================
-
 // @desc    Switch to child profile (generate child-scoped token)
 // @route   POST /api/parents/switch-child/:childId
 // @access  Private (parent must be authenticated)
@@ -700,6 +658,44 @@ const switchToChild = async (req, res) => {
       success: false,
       message: 'Server error during child switch',
       error: error.message
+    });
+  }
+};
+
+// @desc    Delete child (Admin)
+// @route   DELETE /api/parents/:parentId/children/:childId
+// @access  Private/Admin
+const deleteChild = async (req, res) => {
+  try {
+    const { parentId, childId } = req.params;
+
+    // Check if child exists and belongs to parent
+    const child = await Child.findOne({ _id: childId, parentId: parentId });
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child not found or does not belong to this parent'
+      });
+    }
+
+    // Remove child from parent's childrenProfiles array
+    await Parent.findByIdAndUpdate(parentId, {
+      $pull: { childrenProfiles: childId }
+    });
+
+    // Delete child
+    await Child.findByIdAndDelete(childId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Child deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete child error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting child'
     });
   }
 };
@@ -785,17 +781,22 @@ module.exports = {
   registerParent,
   loginParent,
   getParentProfile,
+  // Admin APIs
   getAllParents,
   getParentById,
   createParent,
   updateParent,
   deleteParent,
   getParentsStats,
+
+  // Children Management APIs
   getParentChildren,
   addChildToParent,
   updateChild,
   deleteChild,
+
+  // Child Session APIs
   switchToChild,
   switchBackToParent,
-  getCurrentChildProfile,
+  getCurrentChildProfile
 };

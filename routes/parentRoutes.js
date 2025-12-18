@@ -18,7 +18,10 @@ const {
   getParentChildren,
   addChildToParent,
   updateChild,
-  deleteChild
+  deleteChild,
+  switchToChild,
+  switchBackToParent,
+  getCurrentChildProfile
 } = require('../controllers/parentController');
 
 const { validateParentRegistration } = require('../middleware/validation');
