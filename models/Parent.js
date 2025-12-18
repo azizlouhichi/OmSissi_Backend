@@ -41,6 +41,19 @@ const parentSchema = new mongoose.Schema({
       message: 'You must accept the terms and conditions'
     }
   },
+  // Subscription-related fields
+  plan: {
+    type: String,
+    enum: ['free', 'basic', 'unlimited'],
+    default: 'free'
+  },
+  subscriptionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subscription'
+  },
+  stripeCustomerId: {
+    type: String
+  },
   childrenProfiles: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Child'
