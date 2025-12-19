@@ -34,6 +34,7 @@ app.use('/api/stories', require('./routes/storyRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/children', require('./routes/childRoutes'));
 app.use('/api/subscriptions', require('./routes/subscriptionRoutes'));
+app.use('/api/subscription-plans', require('./routes/subscriptionPlanRoutes'));
 
 // Test route
 app.get('/api/test', (req, res) => {

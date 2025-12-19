@@ -5,6 +5,8 @@ const {
   createCheckoutSession,
   handleWebhook,
   getMySubscription,
+  getSubscriptions,
+  getSubscriptionStats,
   cancelSubscription,
   resumeSubscription
 } = require('../controllers/subscriptionController');
@@ -17,6 +19,8 @@ router.get('/plans', getAvailablePlans);
 router.post('/webhook', express.raw({type: 'application/json'}), handleWebhook);
 
 // Protected routes
+router.get('/', protect, getSubscriptions); // Admin listing of subscriptions
+router.get('/stats', protect, getSubscriptionStats);
 router.get('/my-subscription', protect, getMySubscription);
 router.post('/create-checkout-session', protect, createCheckoutSession);
 router.post('/cancel-subscription', protect, cancelSubscription);

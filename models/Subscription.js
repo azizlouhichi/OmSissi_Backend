@@ -4,7 +4,6 @@ const subscriptionPlanSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Plan name is required'],
-    enum: ['free', 'basic', 'unlimited'],
     unique: true
   },
   displayName: {

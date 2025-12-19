@@ -456,11 +456,180 @@ const resumeSubscription = async (req, res) => {
   }
 };
 
-module.exports = {
-  getAvailablePlans,
-  createCheckoutSession,
-  handleWebhook,
-  getMySubscription,
-  cancelSubscription,
-  resumeSubscription
+// (exports moved to bottom of file after all function definitions)
+
+// @desc    Get a single subscription plan by ID (Admin)
+// @route   GET /api/subscription-plans/:id
+// @access  Private/Admin
+const getPlanById = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+    res.json({ success: true, data: plan });
+  } catch (error) {
+    console.error('Get plan by id error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving plan' });
+  }
 };
+
+// @desc    Create a new subscription plan (Admin)
+// @route   POST /api/subscription-plans
+// @access  Private/Admin
+const createPlan = async (req, res) => {
+  try {
+    const { name, displayName, price, currency, interval, features, maxChildren, maxStoriesPerMonth, aiGenerationPriority, isActive } = req.body;
+
+    // Basic validation
+    if (!name || !displayName || price === undefined) {
+      return res.status(400).json({ success: false, message: 'Missing required fields: name, displayName, price' });
+    }
+
+    const existing = await SubscriptionPlan.findOne({ name });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Plan with this name already exists' });
+    }
+
+    const plan = await SubscriptionPlan.create({
+      name,
+      displayName,
+      price,
+      currency: currency || 'usd',
+      interval: interval || 'month',
+      features: features || [],
+      maxChildren: maxChildren ?? 1,
+      maxStoriesPerMonth: maxStoriesPerMonth ?? 150,
+      aiGenerationPriority: aiGenerationPriority || 'medium',
+      isActive: isActive !== false
+    });
+
+    res.status(201).json({ success: true, message: 'Plan created', data: plan });
+  } catch (error) {
+    console.error('Create plan error:', error);
+    res.status(500).json({ success: false, message: 'Server error creating plan', error: error.message });
+  }
+};
+
+// @desc    Update a subscription plan (Admin)
+// @route   PUT /api/subscription-plans/:id
+// @access  Private/Admin
+const updatePlanById = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+
+    const updateData = req.body;
+    Object.assign(plan, updateData);
+    await plan.save();
+
+    res.json({ success: true, message: 'Plan updated', data: plan });
+  } catch (error) {
+    console.error('Update plan error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating plan', error: error.message });
+  }
+};
+
+// @desc    Delete a subscription plan (Admin)
+// @route   DELETE /api/subscription-plans/:id
+// @access  Private/Admin
+const deletePlanById = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+
+    await SubscriptionPlan.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Plan deleted' });
+  } catch (error) {
+    console.error('Delete plan error:', error);
+    res.status(500).json({ success: false, message: 'Server error deleting plan', error: error.message });
+  }
+};
+
+// (exports moved to bottom of file)
+
+// @desc    Admin: list subscriptions with optional filters
+// @route   GET /api/subscriptions
+// @access  Private/Admin
+const getSubscriptions = async (req, res) => {
+  try {
+    const { planId = '', status = '' } = req.query;
+    const query = {};
+    if (planId) query.planId = planId;
+    if (status) query.status = status;
+
+    const subs = await Subscription.find(query)
+      .populate('planId')
+      .populate('parentId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, data: subs });
+  } catch (error) {
+    console.error('Get subscriptions error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving subscriptions', error: error.message });
+  }
+};
+
+// @desc    Admin: compute subscription stats
+// @route   GET /api/subscriptions/stats
+// @access  Private/Admin
+const getSubscriptionStats = async (req, res) => {
+  try {
+    const subscriptions = await Subscription.find().lean();
+    const plans = await SubscriptionPlan.find().lean();
+
+    const totalSubscribers = subscriptions.length;
+    const activeSubscribers = subscriptions.filter(s => s.status === 'active').length;
+
+    let revenue = 0;
+    const plansDistribution = {};
+
+    subscriptions.forEach(sub => {
+      const plan = plans.find(p => p._id && p._id.toString() === (sub.planId && sub.planId.toString ? sub.planId.toString() : (sub.planId && sub.planId._id ? sub.planId._id.toString() : '')));
+      if (plan && plan.price) revenue += Number(plan.price) || 0;
+      const name = (plan && (plan.displayName || plan.name)) || (sub.planName || 'unknown');
+      plansDistribution[name] = (plansDistribution[name] || 0) + 1;
+    });
+
+    // Convert distribution to percentages
+    Object.keys(plansDistribution).forEach(name => {
+      const count = plansDistribution[name];
+      plansDistribution[name] = {
+        count,
+        percentage: totalSubscribers > 0 ? ((count / totalSubscribers) * 100).toFixed(1) : 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalSubscribers,
+        activeSubscribers,
+        revenue,
+        plansDistribution
+      }
+    });
+  } catch (error) {
+    console.error('Get subscription stats error:', error);
+    res.status(500).json({ success: false, message: 'Server error computing stats', error: error.message });
+  }
+};
+
+  // Final exports (all controller methods)
+  module.exports = {
+    getAvailablePlans,
+    createCheckoutSession,
+    handleWebhook,
+    getMySubscription,
+    cancelSubscription,
+    resumeSubscription,
+    // Admin plan CRUD
+    getPlanById,
+    createPlan,
+    updatePlanById,
+    deletePlanById,
+    // Admin subscriptions
+    getSubscriptions,
+    getSubscriptionStats
+  };
