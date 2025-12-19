@@ -13,7 +13,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STR
 const PLANS = {
   free: {
     name: 'free',
-    displayName: 'Free Plan',
+    displayName: 'Plan Gratuit',
     price: 0,
     interval: 'month',
     maxChildren: 2,
@@ -21,15 +21,15 @@ const PLANS = {
     maxStoriesPerMonth: 150,
     aiGenerationPriority: 'medium',
     features: [
-      'Create up to 2 child profiles',
-      'Generate up to 5 stories per day',
-      'Access to basic story generation',
-      'Standard AI response time'
+      'Créer jusqu\'à 2 profils d\'enfants',
+      'Générer jusqu\'à 5 histoires par jour',
+      'Accès à la génération d\'histoires basique',
+      'Temps de réponse IA standard'
     ]
   },
   basic: {
     name: 'basic',
-    displayName: 'Basic Plan',
+    displayName: 'Plan Basique',
     price: 499, // $4.99 in cents
     interval: 'month',
     maxChildren: 4,
@@ -37,16 +37,16 @@ const PLANS = {
     maxStoriesPerMonth: 300,
     aiGenerationPriority: 'high',
     features: [
-      'Create up to 4 child profiles',
-      'Generate up to 10 stories per day',
-      'Access to advanced story themes',
-      'Faster AI response time',
-      'Priority customer support'
+      'Créer jusqu\'à 4 profils d\'enfants',
+      'Générer jusqu\'à 10 histoires par jour',
+      'Accès aux thèmes d\'histoires avancés',
+      'Temps de réponse IA plus rapide',
+      'Support client prioritaire'
     ]
   },
   unlimited: {
     name: 'unlimited',
-    displayName: 'Unlimited Plan',
+    displayName: 'Plan Illimité',
     price: 999, // $9.99 in cents
     interval: 'month',
     maxChildren: 10,
@@ -54,12 +54,12 @@ const PLANS = {
     maxStoriesPerMonth: 1500,
     aiGenerationPriority: 'high',
     features: [
-      'Create up to 10 child profiles',
-      'Generate up to 50 stories per day',
-      'Unlimited story generation',
-      'Premium AI response time',
-      'Early access to new features',
-      '24/7 premium customer support'
+      'Créer jusqu\'à 10 profils d\'enfants',
+      'Générer jusqu\'à 50 histoires par jour',
+      'Génération d\'histoires illimitée',
+      'Temps de réponse IA premium',
+      'Accès anticipé aux nouvelles fonctionnalités',
+      'Support client premium 24/7'
     ]
   }
 };
