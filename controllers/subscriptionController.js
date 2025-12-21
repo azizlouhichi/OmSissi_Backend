@@ -1,7 +1,16 @@
 const Parent = require('../models/Parent');
 const { Subscription, SubscriptionPlan } = require('../models/Subscription');
 const { stripe } = require('../utils/stripe');
-const mongoose = require('mongoose');  // ✅ Ajouté pour ObjectId
+const mongoose = require('mongoose');
+
+// =================== HELPERS ===================
+function toObjectId(id) {
+  // ✅ safe ObjectId conversion
+  if (!id) return null;
+  if (id instanceof mongoose.Types.ObjectId) return id;
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  return new mongoose.Types.ObjectId(id);
+}
 
 // @desc    Get available subscription plans
 // @route   GET /api/subscriptions/plans
@@ -9,18 +18,18 @@ const mongoose = require('mongoose');  // ✅ Ajouté pour ObjectId
 const getAvailablePlans = async (req, res) => {
   try {
     const plans = await SubscriptionPlan.find({ isActive: true }).sort({ price: 1 });
-    
+
     res.json({
       success: true,
       message: 'Available subscription plans retrieved successfully',
-      data: plans
+      data: plans,
     });
   } catch (error) {
     console.error('❌ Get plans error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error retrieving plans',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -33,12 +42,16 @@ const createCheckoutSession = async (req, res) => {
     if (!stripe) {
       return res.status(500).json({
         success: false,
-        message: 'Payment processing is not configured. Please contact the administrator.'
+        message: 'Payment processing is not configured. Please contact the administrator.',
       });
     }
 
     const { planId, planName } = req.body;
-    const parentId = req.parent._id;
+    const parentId = req.parent?._id;
+
+    if (!parentId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
     console.log('💳 Creating checkout session for:', { parentId, planName });
 
@@ -46,18 +59,22 @@ const createCheckoutSession = async (req, res) => {
     const plan = await SubscriptionPlan.findOne({
       _id: planId,
       name: planName,
-      isActive: true
+      isActive: true,
     });
 
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'Selected plan not found or not available'
+        message: 'Selected plan not found or not available',
       });
     }
 
     // Get or create customer in Stripe
     let parent = await Parent.findById(parentId);
+    if (!parent) {
+      return res.status(404).json({ success: false, message: 'Parent not found' });
+    }
+
     let stripeCustomerId = parent.stripeCustomerId;
 
     if (!stripeCustomerId) {
@@ -66,52 +83,47 @@ const createCheckoutSession = async (req, res) => {
         email: parent.email,
         name: `${parent.firstName} ${parent.lastName}`,
         metadata: {
-          parentId: parent._id.toString()
-        }
+          parentId: parent._id.toString(),
+        },
       });
       stripeCustomerId = customer.id;
 
-      parent = await Parent.findByIdAndUpdate(
-        parentId,
-        { stripeCustomerId },
-        { new: true }
-      );
+      parent = await Parent.findByIdAndUpdate(parentId, { stripeCustomerId }, { new: true });
       console.log('✅ Stripe customer created:', stripeCustomerId);
     }
 
-    // ✅ CORRECTION CRITIQUE: Utiliser des URLs web (pas des deep links!)
+    // ✅ URLs web (pas deep link)
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
     const successUrl = `${baseUrl}/payment-success.html?session_id={CHECKOUT_SESSION_ID}&parent_id=${parentId}`;
     const cancelUrl = `${baseUrl}/payment-cancel.html`;
 
     console.log('🔗 Redirect URLs:', { successUrl, cancelUrl });
 
-    // Create a checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       customer: stripeCustomerId,
-      line_items: [{
-        price_data: {
-          currency: plan.currency,
-          product_data: {
-            name: plan.displayName,
-            description: plan.features.join(', ')
+      line_items: [
+        {
+          price_data: {
+            currency: plan.currency,
+            product_data: {
+              name: plan.displayName,
+              description: (plan.features || []).join(', '),
+            },
+            unit_amount: plan.price,
+            recurring: { interval: plan.interval },
           },
-          unit_amount: plan.price,
-          recurring: {
-            interval: plan.interval
-          }
+          quantity: 1,
         },
-        quantity: 1
-      }],
+      ],
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
         parentId: parentId.toString(),
         planId: planId.toString(),
-        planName: planName
-      }
+        planName: planName,
+      },
     });
 
     console.log('✅ Checkout session created:', session.id);
@@ -119,24 +131,21 @@ const createCheckoutSession = async (req, res) => {
     res.json({
       success: true,
       message: 'Checkout session created successfully',
-      data: {
-        sessionId: session.id,
-        url: session.url
-      }
+      data: { sessionId: session.id, url: session.url },
     });
   } catch (error) {
     console.error('❌ Create checkout session error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error creating checkout session',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 // @desc    Handle Stripe webhook for subscription updates
 // @route   POST /api/subscriptions/webhook
-// @access  Public (handled by Stripe)
+// @access  Public
 const handleWebhook = async (req, res) => {
   if (!stripe) {
     console.error('❌ Stripe not configured, cannot process webhook');
@@ -152,8 +161,8 @@ const handleWebhook = async (req, res) => {
   }
 
   let event;
-
   try {
+    // ✅ IMPORTANT: req.body ici DOIT être un Buffer (express.raw)
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     console.log('✅ Webhook signature verified:', event.type);
   } catch (err) {
@@ -161,7 +170,6 @@ const handleWebhook = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   try {
     switch (event.type) {
       case 'checkout.session.completed':
@@ -189,10 +197,10 @@ const handleWebhook = async (req, res) => {
         console.log(`⚠️ Unhandled event type: ${event.type}`);
     }
 
-    res.json({ received: true });
+    return res.json({ received: true });
   } catch (error) {
     console.error('❌ Error processing webhook:', error);
-    res.status(500).json({ received: false, error: error.message });
+    return res.status(500).json({ received: false, error: error.message });
   }
 };
 
@@ -201,7 +209,7 @@ const handleWebhook = async (req, res) => {
 async function handleCheckoutSessionCompleted(session) {
   console.log('🔄 Processing checkout.session.completed...');
   console.log('Session ID:', session.id);
-  
+
   const parentId = session.metadata?.parentId;
   const planId = session.metadata?.planId;
   const planName = session.metadata?.planName;
@@ -212,46 +220,55 @@ async function handleCheckoutSessionCompleted(session) {
     return;
   }
 
+  const parentObjectId = toObjectId(parentId);
+  const planObjectId = toObjectId(planId);
+
+  if (!parentObjectId || !planObjectId) {
+    console.error('❌ Invalid ObjectId(s):', { parentId, planId });
+    return;
+  }
+
   try {
-    // Récupérer les détails de la subscription Stripe
+    // Récupérer la subscription Stripe
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
-    
+
     console.log('📦 Stripe subscription retrieved:', stripeSubscription.id);
     console.log('Status:', stripeSubscription.status);
 
-    // Créer ou mettre à jour la subscription dans notre DB
-    // ✅ Utiliser l'opération MongoDB native pour éviter le bug Mongoose avec les dates
+    // ✅ Data à stocker (dates -> Date)
     const subscriptionData = {
-      parentId,
-      planId,
+      parentId: parentObjectId,
+      planId: planObjectId,
       planName,
       status: stripeSubscription.status,
       stripeCustomerId: session.customer,
       stripeSubscriptionId: session.subscription,
       startDate: new Date(stripeSubscription.current_period_start * 1000),
       endDate: new Date(stripeSubscription.current_period_end * 1000),
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-      updatedAt: new Date()
+      cancelAtPeriodEnd: !!stripeSubscription.cancel_at_period_end,
+      updatedAt: new Date(),
     };
 
-    const subscription = await Subscription.collection.findOneAndUpdate(
-      { parentId: mongoose.Types.ObjectId(parentId) },
+    // ✅ MongoDB native (évite bugs Mongoose dates)
+    const result = await Subscription.collection.findOneAndUpdate(
+      { parentId: parentObjectId },
       { $set: subscriptionData, $setOnInsert: { createdAt: new Date() } },
       { upsert: true, returnDocument: 'after' }
     );
 
-    const subscriptionId = subscription.value._id;
+    const saved = result?.value;
+    if (!saved?._id) {
+      console.error('❌ Subscription not saved properly');
+      return;
+    }
 
-    console.log('✅ Subscription saved in DB:', subscriptionId);
+    console.log('✅ Subscription saved in DB:', saved._id.toString());
 
-    // ✅ CRITIQUE: Mettre à jour le plan du parent
-    await Parent.findByIdAndUpdate(
-      parentId,
-      {
-        plan: planName,
-        subscriptionId: subscriptionId
-      }
-    );
+    // ✅ Update parent
+    await Parent.findByIdAndUpdate(parentObjectId, {
+      plan: planName,
+      subscriptionId: saved._id,
+    });
 
     console.log(`✅ Parent ${parentId} plan updated to: ${planName}`);
   } catch (error) {
@@ -266,13 +283,12 @@ async function handleSubscriptionUpdated(stripeSubscription) {
   console.log('New status:', stripeSubscription.status);
 
   try {
-    // ✅ Utiliser MongoDB native
     const updateData = {
       status: stripeSubscription.status,
       startDate: new Date(stripeSubscription.current_period_start * 1000),
       endDate: new Date(stripeSubscription.current_period_end * 1000),
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-      updatedAt: new Date()
+      cancelAtPeriodEnd: !!stripeSubscription.cancel_at_period_end,
+      updatedAt: new Date(),
     };
 
     const result = await Subscription.collection.findOneAndUpdate(
@@ -281,13 +297,9 @@ async function handleSubscriptionUpdated(stripeSubscription) {
       { returnDocument: 'after' }
     );
 
-    if (result.value) {
-      // Mettre à jour le plan du parent
-      await Parent.findByIdAndUpdate(
-        result.value.parentId,
-        { plan: result.value.planName }
-      );
-
+    const updated = result?.value;
+    if (updated) {
+      await Parent.findByIdAndUpdate(updated.parentId, { plan: updated.planName });
       console.log(`✅ Subscription ${stripeSubscription.id} updated`);
     } else {
       console.error('❌ Subscription not found in DB:', stripeSubscription.id);
@@ -303,11 +315,10 @@ async function handleSubscriptionDeleted(stripeSubscription) {
   console.log('Subscription ID:', stripeSubscription.id);
 
   try {
-    // ✅ Utiliser MongoDB native
     const updateData = {
       status: 'cancelled',
       cancelledAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const result = await Subscription.collection.findOneAndUpdate(
@@ -316,13 +327,12 @@ async function handleSubscriptionDeleted(stripeSubscription) {
       { returnDocument: 'after' }
     );
 
-    if (result.value) {
-      // Remettre le parent sur le plan free
-      await Parent.findByIdAndUpdate(
-        result.value.parentId,
-        { plan: 'free', subscriptionId: null }
-      );
-
+    const updated = result?.value;
+    if (updated) {
+      await Parent.findByIdAndUpdate(updated.parentId, {
+        plan: 'free',
+        subscriptionId: null,
+      });
       console.log(`✅ Subscription ${stripeSubscription.id} cancelled, parent reverted to free`);
     } else {
       console.error('❌ Subscription not found in DB:', stripeSubscription.id);
@@ -335,15 +345,15 @@ async function handleSubscriptionDeleted(stripeSubscription) {
 
 async function handlePaymentFailed(invoice) {
   console.log('❌ Payment failed for invoice:', invoice.id);
-  
+
   try {
     const subscription = await Subscription.findOne({
-      stripeSubscriptionId: invoice.subscription
+      stripeSubscriptionId: invoice.subscription,
     });
 
     if (subscription) {
       console.log(`⚠️ Payment failed for parent ${subscription.parentId}`);
-      // Vous pouvez envoyer un email de notification ici
+      // TODO: send email / notify parent
     }
   } catch (error) {
     console.error('❌ Error in handlePaymentFailed:', error);
@@ -355,16 +365,11 @@ async function handlePaymentFailed(invoice) {
 // @access  Private
 const getMySubscription = async (req, res) => {
   try {
-    const parentId = req.parent._id;
-    
-    const parent = await Parent.findById(parentId)
-      .select('-password -parentalPIN');
-    
+    const parentId = req.parent?._id;
+
+    const parent = await Parent.findById(parentId).select('-password -parentalPIN');
     if (!parent) {
-      return res.status(404).json({
-        success: false,
-        message: 'Parent not found'
-      });
+      return res.status(404).json({ success: false, message: 'Parent not found' });
     }
 
     let subscriptionDetails = null;
@@ -372,13 +377,11 @@ const getMySubscription = async (req, res) => {
 
     if (parent.subscriptionId) {
       subscriptionDetails = await Subscription.findById(parent.subscriptionId);
-      
       if (subscriptionDetails) {
         planDetails = await SubscriptionPlan.findById(subscriptionDetails.planId);
       }
     }
 
-    // If no subscription, get the free plan details
     if (!planDetails) {
       planDetails = await SubscriptionPlan.findOne({ name: 'free' });
     }
@@ -389,15 +392,15 @@ const getMySubscription = async (req, res) => {
       data: {
         plan: parent.plan || 'free',
         subscription: subscriptionDetails || null,
-        planDetails: planDetails || null
-      }
+        planDetails: planDetails || null,
+      },
     });
   } catch (error) {
     console.error('❌ Get subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error retrieving subscription',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -410,40 +413,24 @@ const cancelSubscription = async (req, res) => {
     if (!stripe) {
       return res.status(500).json({
         success: false,
-        message: 'Payment processing is not configured. Cannot cancel subscription.'
+        message: 'Payment processing is not configured. Cannot cancel subscription.',
       });
     }
 
-    const parentId = req.parent._id;
+    const parentId = req.parent?._id;
 
-    const subscription = await Subscription.findOne({
-      parentId,
-      status: 'active'
-    });
-
+    const subscription = await Subscription.findOne({ parentId, status: 'active' });
     if (!subscription) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active subscription found'
-      });
+      return res.status(404).json({ success: false, message: 'No active subscription found' });
     }
 
-    // Cancel the subscription in Stripe (at period end)
     await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: true
+      cancel_at_period_end: true,
     });
-
-    // Update the subscription in our database
-    // ✅ Utiliser MongoDB native
-    const updateData = {
-      cancelAtPeriodEnd: true,
-      cancelledAt: new Date(),
-      updatedAt: new Date()
-    };
 
     await Subscription.collection.updateOne(
       { _id: subscription._id },
-      { $set: updateData }
+      { $set: { cancelAtPeriodEnd: true, cancelledAt: new Date(), updatedAt: new Date() } }
     );
 
     const updatedSubscription = await Subscription.findById(subscription._id).populate('planId');
@@ -453,14 +440,14 @@ const cancelSubscription = async (req, res) => {
     res.json({
       success: true,
       message: 'Subscription will be cancelled at the end of the current period',
-      data: updatedSubscription
+      data: updatedSubscription,
     });
   } catch (error) {
     console.error('❌ Cancel subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error cancelling subscription',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -473,37 +460,24 @@ const resumeSubscription = async (req, res) => {
     if (!stripe) {
       return res.status(500).json({
         success: false,
-        message: 'Payment processing is not configured. Cannot resume subscription.'
+        message: 'Payment processing is not configured. Cannot resume subscription.',
       });
     }
 
-    const parentId = req.parent._id;
+    const parentId = req.parent?._id;
 
-    const subscription = await Subscription.findOne({
-      parentId,
-      cancelAtPeriodEnd: true
-    });
-
+    const subscription = await Subscription.findOne({ parentId, cancelAtPeriodEnd: true });
     if (!subscription) {
-      return res.status(404).json({
-        success: false,
-        message: 'No cancellable subscription found'
-      });
+      return res.status(404).json({ success: false, message: 'No cancellable subscription found' });
     }
 
-    // Resume the subscription in Stripe
     await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: false
+      cancel_at_period_end: false,
     });
 
-    // Update the subscription in our database
     const updatedSubscription = await Subscription.findByIdAndUpdate(
       subscription._id,
-      {
-        status: 'active',
-        cancelAtPeriodEnd: false,
-        cancelledAt: null
-      },
+      { status: 'active', cancelAtPeriodEnd: false, cancelledAt: null },
       { new: true }
     ).populate('planId');
 
@@ -512,14 +486,14 @@ const resumeSubscription = async (req, res) => {
     res.json({
       success: true,
       message: 'Subscription resumed successfully',
-      data: updatedSubscription
+      data: updatedSubscription,
     });
   } catch (error) {
     console.error('❌ Resume subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error resuming subscription',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -530,5 +504,5 @@ module.exports = {
   handleWebhook,
   getMySubscription,
   cancelSubscription,
-  resumeSubscription
+  resumeSubscription,
 };
