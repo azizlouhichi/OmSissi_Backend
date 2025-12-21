@@ -1,12 +1,6 @@
 const Parent = require('../models/Parent');
 const { Subscription, SubscriptionPlan } = require('../models/Subscription');
 const { stripe } = require('../utils/stripe');
-const jwt = require('jsonwebtoken');
-
-// Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
 
 // @desc    Get available subscription plans
 // @route   GET /api/subscriptions/plans
@@ -21,7 +15,7 @@ const getAvailablePlans = async (req, res) => {
       data: plans
     });
   } catch (error) {
-    console.error('Get plans error:', error);
+    console.error('❌ Get plans error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error retrieving plans',
@@ -35,7 +29,6 @@ const getAvailablePlans = async (req, res) => {
 // @access  Private
 const createCheckoutSession = async (req, res) => {
   try {
-    // Check if Stripe is configured
     if (!stripe) {
       return res.status(500).json({
         success: false,
@@ -45,6 +38,8 @@ const createCheckoutSession = async (req, res) => {
 
     const { planId, planName } = req.body;
     const parentId = req.parent._id;
+
+    console.log('💳 Creating checkout session for:', { parentId, planName });
 
     // Find the selected plan
     const plan = await SubscriptionPlan.findOne({
@@ -65,7 +60,7 @@ const createCheckoutSession = async (req, res) => {
     let stripeCustomerId = parent.stripeCustomerId;
 
     if (!stripeCustomerId) {
-      // Create a new customer in Stripe
+      console.log('📝 Creating new Stripe customer...');
       const customer = await stripe.customers.create({
         email: parent.email,
         name: `${parent.firstName} ${parent.lastName}`,
@@ -75,17 +70,20 @@ const createCheckoutSession = async (req, res) => {
       });
       stripeCustomerId = customer.id;
 
-      // Save the customer ID to the parent record
       parent = await Parent.findByIdAndUpdate(
         parentId,
         { stripeCustomerId },
         { new: true }
       );
+      console.log('✅ Stripe customer created:', stripeCustomerId);
     }
 
-    // CORRECTION: Utiliser le deep link de votre app au lieu de FRONTEND_URL
-    const successUrl = `omsisi://subscription-success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `omsisi://subscription-cancel`;
+    // ✅ CORRECTION CRITIQUE: Utiliser des URLs web (pas des deep links!)
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+    const successUrl = `${baseUrl}/payment-success.html?session_id={CHECKOUT_SESSION_ID}&parent_id=${parentId}`;
+    const cancelUrl = `${baseUrl}/payment-cancel.html`;
+
+    console.log('🔗 Redirect URLs:', { successUrl, cancelUrl });
 
     // Create a checkout session
     const session = await stripe.checkout.sessions.create({
@@ -115,6 +113,8 @@ const createCheckoutSession = async (req, res) => {
       }
     });
 
+    console.log('✅ Checkout session created:', session.id);
+
     res.json({
       success: true,
       message: 'Checkout session created successfully',
@@ -124,7 +124,7 @@ const createCheckoutSession = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Create checkout session error:', error);
+    console.error('❌ Create checkout session error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error creating checkout session',
@@ -137,135 +137,203 @@ const createCheckoutSession = async (req, res) => {
 // @route   POST /api/subscriptions/webhook
 // @access  Public (handled by Stripe)
 const handleWebhook = async (req, res) => {
-  // Check if Stripe is configured
   if (!stripe) {
-    console.error('Stripe not configured, cannot process webhook');
+    console.error('❌ Stripe not configured, cannot process webhook');
     return res.status(500).json({ received: false, error: 'Stripe not configured' });
   }
 
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  if (!endpointSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ received: false, error: 'Webhook secret not configured' });
+  }
+
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('✅ Webhook signature verified:', event.type);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
+    console.error('❌ Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
-  switch (event.type) {
-    case 'checkout.session.completed':
-      const session = event.data.object;
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
 
-      try {
-        const parentId = session.metadata?.parentId;
-        const planId = session.metadata?.planId;
-        const planName = session.metadata?.planName;
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object);
+        break;
 
-        if (parentId && planId && planName) {
-          // Create or update subscription in our database
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      case 'customer.subscription.deleted':
+        await handleSubscriptionDeleted(event.data.object);
+        break;
 
-          // Create or update subscription record
-          const newSubscription = await Subscription.findOneAndUpdate(
-            { parentId },
-            {
-              parentId,
-              planId,
-              planName,
-              status: 'active',
-              stripeCustomerId: session.customer,
-              stripeSubscriptionId: session.subscription,
-              startDate: new Date(subscription.current_period_start * 1000),
-              endDate: new Date(subscription.current_period_end * 1000),
-              cancelAtPeriodEnd: subscription.cancel_at_period_end
-            },
-            { upsert: true, new: true }
-          );
+      case 'invoice.payment_succeeded':
+        console.log('✅ Invoice payment succeeded:', event.data.object.id);
+        break;
 
-          // Update parent's plan and subscription reference
-          await Parent.findByIdAndUpdate(
-            parentId,
-            {
-              plan: planName,
-              subscriptionId: newSubscription._id
-            }
-          );
+      case 'invoice.payment_failed':
+        console.log('❌ Invoice payment failed:', event.data.object.id);
+        await handlePaymentFailed(event.data.object);
+        break;
 
-          console.log(`✅ Subscription activated for parent ${parentId}: ${planName}`);
-        }
-      } catch (error) {
-        console.error('Error processing checkout session completed:', error);
-      }
-      break;
+      default:
+        console.log(`⚠️ Unhandled event type: ${event.type}`);
+    }
 
-    case 'customer.subscription.updated':
-      const subscriptionUpdated = event.data.object;
-      try {
-        // Update subscription in our database
-        await Subscription.findOneAndUpdate(
-          { stripeSubscriptionId: subscriptionUpdated.id },
-          {
-            status: subscriptionUpdated.status,
-            startDate: new Date(subscriptionUpdated.current_period_start * 1000),
-            endDate: new Date(subscriptionUpdated.current_period_end * 1000),
-            cancelAtPeriodEnd: subscriptionUpdated.cancel_at_period_end
-          }
-        );
+    res.json({ received: true });
+  } catch (error) {
+    console.error('❌ Error processing webhook:', error);
+    res.status(500).json({ received: false, error: error.message });
+  }
+};
 
-        // Update parent's plan if needed
-        const subscription = await Subscription.findOne({ 
-          stripeSubscriptionId: subscriptionUpdated.id 
-        });
-        
-        if (subscription) {
-          await Parent.findByIdAndUpdate(
-            subscription.parentId,
-            { plan: subscription.planName }
-          );
-        }
+// ================= WEBHOOK HANDLERS =================
 
-        console.log(`✅ Subscription updated: ${subscriptionUpdated.id}`);
-      } catch (error) {
-        console.error('Error processing subscription updated:', error);
-      }
-      break;
+async function handleCheckoutSessionCompleted(session) {
+  console.log('🔄 Processing checkout.session.completed...');
+  console.log('Session ID:', session.id);
+  
+  const parentId = session.metadata?.parentId;
+  const planId = session.metadata?.planId;
+  const planName = session.metadata?.planName;
 
-    case 'customer.subscription.deleted':
-      const subscriptionDeleted = event.data.object;
-      try {
-        // Update subscription status in our database
-        const subscription = await Subscription.findOneAndUpdate(
-          { stripeSubscriptionId: subscriptionDeleted.id },
-          {
-            status: 'cancelled',
-            cancelledAt: new Date()
-          }
-        );
-
-        // Update parent's plan to free
-        if (subscription) {
-          await Parent.findByIdAndUpdate(
-            subscription.parentId,
-            { plan: 'free', subscriptionId: null }
-          );
-        }
-
-        console.log(`✅ Subscription cancelled: ${subscriptionDeleted.id}`);
-      } catch (error) {
-        console.error('Error processing subscription deleted:', error);
-      }
-      break;
-
-    default:
-      console.log(`⚠️ Unhandled event type ${event.type}`);
+  if (!parentId || !planId || !planName) {
+    console.error('❌ Missing metadata in session:', session.id);
+    console.error('Metadata:', session.metadata);
+    return;
   }
 
-  res.json({ received: true });
-};
+  try {
+    // Récupérer les détails de la subscription Stripe
+    const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    
+    console.log('📦 Stripe subscription retrieved:', stripeSubscription.id);
+    console.log('Status:', stripeSubscription.status);
+
+    // Créer ou mettre à jour la subscription dans notre DB
+    const subscription = await Subscription.findOneAndUpdate(
+      { parentId },
+      {
+        parentId,
+        planId,
+        planName,
+        status: stripeSubscription.status,
+        stripeCustomerId: session.customer,
+        stripeSubscriptionId: session.subscription,
+        startDate: new Date(stripeSubscription.current_period_start * 1000),
+        endDate: new Date(stripeSubscription.current_period_end * 1000),
+        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log('✅ Subscription saved in DB:', subscription._id);
+
+    // ✅ CRITIQUE: Mettre à jour le plan du parent
+    await Parent.findByIdAndUpdate(
+      parentId,
+      {
+        plan: planName,
+        subscriptionId: subscription._id
+      }
+    );
+
+    console.log(`✅ Parent ${parentId} plan updated to: ${planName}`);
+  } catch (error) {
+    console.error('❌ Error in handleCheckoutSessionCompleted:', error);
+    throw error;
+  }
+}
+
+async function handleSubscriptionUpdated(stripeSubscription) {
+  console.log('🔄 Processing subscription.updated...');
+  console.log('Subscription ID:', stripeSubscription.id);
+  console.log('New status:', stripeSubscription.status);
+
+  try {
+    const subscription = await Subscription.findOneAndUpdate(
+      { stripeSubscriptionId: stripeSubscription.id },
+      {
+        status: stripeSubscription.status,
+        startDate: new Date(stripeSubscription.current_period_start * 1000),
+        endDate: new Date(stripeSubscription.current_period_end * 1000),
+        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
+      },
+      { new: true }
+    );
+
+    if (subscription) {
+      // Mettre à jour le plan du parent
+      await Parent.findByIdAndUpdate(
+        subscription.parentId,
+        { plan: subscription.planName }
+      );
+
+      console.log(`✅ Subscription ${stripeSubscription.id} updated`);
+    } else {
+      console.error('❌ Subscription not found in DB:', stripeSubscription.id);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleSubscriptionUpdated:', error);
+    throw error;
+  }
+}
+
+async function handleSubscriptionDeleted(stripeSubscription) {
+  console.log('🔄 Processing subscription.deleted...');
+  console.log('Subscription ID:', stripeSubscription.id);
+
+  try {
+    const subscription = await Subscription.findOneAndUpdate(
+      { stripeSubscriptionId: stripeSubscription.id },
+      {
+        status: 'cancelled',
+        cancelledAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (subscription) {
+      // Remettre le parent sur le plan free
+      await Parent.findByIdAndUpdate(
+        subscription.parentId,
+        { plan: 'free', subscriptionId: null }
+      );
+
+      console.log(`✅ Subscription ${stripeSubscription.id} cancelled, parent reverted to free`);
+    } else {
+      console.error('❌ Subscription not found in DB:', stripeSubscription.id);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleSubscriptionDeleted:', error);
+    throw error;
+  }
+}
+
+async function handlePaymentFailed(invoice) {
+  console.log('❌ Payment failed for invoice:', invoice.id);
+  
+  try {
+    const subscription = await Subscription.findOne({
+      stripeSubscriptionId: invoice.subscription
+    });
+
+    if (subscription) {
+      console.log(`⚠️ Payment failed for parent ${subscription.parentId}`);
+      // Vous pouvez envoyer un email de notification ici
+    }
+  } catch (error) {
+    console.error('❌ Error in handlePaymentFailed:', error);
+  }
+}
 
 // @desc    Get current parent subscription
 // @route   GET /api/subscriptions/my-subscription
@@ -274,7 +342,6 @@ const getMySubscription = async (req, res) => {
   try {
     const parentId = req.parent._id;
     
-    // Get parent with subscription info
     const parent = await Parent.findById(parentId)
       .select('-password -parentalPIN');
     
@@ -285,7 +352,6 @@ const getMySubscription = async (req, res) => {
       });
     }
 
-    // Get detailed subscription info
     let subscriptionDetails = null;
     let planDetails = null;
 
@@ -312,7 +378,7 @@ const getMySubscription = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get subscription error:', error);
+    console.error('❌ Get subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error retrieving subscription',
@@ -326,7 +392,6 @@ const getMySubscription = async (req, res) => {
 // @access  Private
 const cancelSubscription = async (req, res) => {
   try {
-    // Check if Stripe is configured
     if (!stripe) {
       return res.status(500).json({
         success: false,
@@ -336,7 +401,6 @@ const cancelSubscription = async (req, res) => {
 
     const parentId = req.parent._id;
 
-    // Get the subscription
     const subscription = await Subscription.findOne({
       parentId,
       status: 'active'
@@ -364,13 +428,15 @@ const cancelSubscription = async (req, res) => {
       { new: true }
     ).populate('planId');
 
+    console.log('✅ Subscription cancelled:', subscription.stripeSubscriptionId);
+
     res.json({
       success: true,
       message: 'Subscription will be cancelled at the end of the current period',
       data: updatedSubscription
     });
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    console.error('❌ Cancel subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error cancelling subscription',
@@ -384,7 +450,6 @@ const cancelSubscription = async (req, res) => {
 // @access  Private
 const resumeSubscription = async (req, res) => {
   try {
-    // Check if Stripe is configured
     if (!stripe) {
       return res.status(500).json({
         success: false,
@@ -394,7 +459,6 @@ const resumeSubscription = async (req, res) => {
 
     const parentId = req.parent._id;
 
-    // Get the cancelled subscription
     const subscription = await Subscription.findOne({
       parentId,
       cancelAtPeriodEnd: true
@@ -423,13 +487,15 @@ const resumeSubscription = async (req, res) => {
       { new: true }
     ).populate('planId');
 
+    console.log('✅ Subscription resumed:', subscription.stripeSubscriptionId);
+
     res.json({
       success: true,
       message: 'Subscription resumed successfully',
       data: updatedSubscription
     });
   } catch (error) {
-    console.error('Resume subscription error:', error);
+    console.error('❌ Resume subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error resuming subscription',
