@@ -1,6 +1,7 @@
 const Parent = require('../models/Parent');
 const { Subscription, SubscriptionPlan } = require('../models/Subscription');
 const { stripe } = require('../utils/stripe');
+const mongoose = require('mongoose');  // ✅ Ajouté pour ObjectId
 
 // @desc    Get available subscription plans
 // @route   GET /api/subscriptions/plans
@@ -219,32 +220,36 @@ async function handleCheckoutSessionCompleted(session) {
     console.log('Status:', stripeSubscription.status);
 
     // Créer ou mettre à jour la subscription dans notre DB
-    const subscription = await Subscription.findOneAndUpdate(
-      { parentId },
-      {
-        $set: {
-          parentId,
-          planId,
-          planName,
-          status: stripeSubscription.status,
-          stripeCustomerId: session.customer,
-          stripeSubscriptionId: session.subscription,
-          startDate: new Date(stripeSubscription.current_period_start * 1000),
-          endDate: new Date(stripeSubscription.current_period_end * 1000),
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
-        }
-      },
-      { upsert: true, new: true, runValidators: false }
+    // ✅ Utiliser l'opération MongoDB native pour éviter le bug Mongoose avec les dates
+    const subscriptionData = {
+      parentId,
+      planId,
+      planName,
+      status: stripeSubscription.status,
+      stripeCustomerId: session.customer,
+      stripeSubscriptionId: session.subscription,
+      startDate: new Date(stripeSubscription.current_period_start * 1000),
+      endDate: new Date(stripeSubscription.current_period_end * 1000),
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      updatedAt: new Date()
+    };
+
+    const subscription = await Subscription.collection.findOneAndUpdate(
+      { parentId: mongoose.Types.ObjectId(parentId) },
+      { $set: subscriptionData, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true, returnDocument: 'after' }
     );
 
-    console.log('✅ Subscription saved in DB:', subscription._id);
+    const subscriptionId = subscription.value._id;
+
+    console.log('✅ Subscription saved in DB:', subscriptionId);
 
     // ✅ CRITIQUE: Mettre à jour le plan du parent
     await Parent.findByIdAndUpdate(
       parentId,
       {
         plan: planName,
-        subscriptionId: subscription._id
+        subscriptionId: subscriptionId
       }
     );
 
@@ -261,24 +266,26 @@ async function handleSubscriptionUpdated(stripeSubscription) {
   console.log('New status:', stripeSubscription.status);
 
   try {
-    const subscription = await Subscription.findOneAndUpdate(
+    // ✅ Utiliser MongoDB native
+    const updateData = {
+      status: stripeSubscription.status,
+      startDate: new Date(stripeSubscription.current_period_start * 1000),
+      endDate: new Date(stripeSubscription.current_period_end * 1000),
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      updatedAt: new Date()
+    };
+
+    const result = await Subscription.collection.findOneAndUpdate(
       { stripeSubscriptionId: stripeSubscription.id },
-      {
-        $set: {
-          status: stripeSubscription.status,
-          startDate: new Date(stripeSubscription.current_period_start * 1000),
-          endDate: new Date(stripeSubscription.current_period_end * 1000),
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
-        }
-      },
-      { new: true, runValidators: false }
+      { $set: updateData },
+      { returnDocument: 'after' }
     );
 
-    if (subscription) {
+    if (result.value) {
       // Mettre à jour le plan du parent
       await Parent.findByIdAndUpdate(
-        subscription.parentId,
-        { plan: subscription.planName }
+        result.value.parentId,
+        { plan: result.value.planName }
       );
 
       console.log(`✅ Subscription ${stripeSubscription.id} updated`);
@@ -296,21 +303,23 @@ async function handleSubscriptionDeleted(stripeSubscription) {
   console.log('Subscription ID:', stripeSubscription.id);
 
   try {
-    const subscription = await Subscription.findOneAndUpdate(
+    // ✅ Utiliser MongoDB native
+    const updateData = {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await Subscription.collection.findOneAndUpdate(
       { stripeSubscriptionId: stripeSubscription.id },
-      {
-        $set: {
-          status: 'cancelled',
-          cancelledAt: new Date()
-        }
-      },
-      { new: true, runValidators: false }
+      { $set: updateData },
+      { returnDocument: 'after' }
     );
 
-    if (subscription) {
+    if (result.value) {
       // Remettre le parent sur le plan free
       await Parent.findByIdAndUpdate(
-        subscription.parentId,
+        result.value.parentId,
         { plan: 'free', subscriptionId: null }
       );
 
@@ -425,16 +434,19 @@ const cancelSubscription = async (req, res) => {
     });
 
     // Update the subscription in our database
-    const updatedSubscription = await Subscription.findByIdAndUpdate(
-      subscription._id,
-      {
-        $set: {
-          cancelAtPeriodEnd: true,
-          cancelledAt: new Date()
-        }
-      },
-      { new: true, runValidators: false }
-    ).populate('planId');
+    // ✅ Utiliser MongoDB native
+    const updateData = {
+      cancelAtPeriodEnd: true,
+      cancelledAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await Subscription.collection.updateOne(
+      { _id: subscription._id },
+      { $set: updateData }
+    );
+
+    const updatedSubscription = await Subscription.findById(subscription._id).populate('planId');
 
     console.log('✅ Subscription cancelled:', subscription.stripeSubscriptionId);
 
