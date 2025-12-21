@@ -73,15 +73,17 @@ const subscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'cancelled', 'past_due', 'unpaid'],
+    enum: ['active', 'cancelled', 'past_due', 'unpaid', 'trialing', 'incomplete'],
     default: 'active'
   },
+  // ✅ Garder Date mais sans default Date.now
   startDate: {
     type: Date,
-    default: Date.now
+    required: false
   },
   endDate: {
-    type: Date
+    type: Date,
+    required: false
   },
   stripeCustomerId: {
     type: String,
@@ -99,17 +101,21 @@ const subscriptionSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // ✅ Pas de default pour éviter les conflits
   cancelledAt: {
-    type: Date
+    type: Date,
+    required: false
   },
   trialStart: {
-    type: Date
+    type: Date,
+    required: false
   },
   trialEnd: {
-    type: Date
+    type: Date,
+    required: false
   }
 }, {
-  timestamps: true
+  timestamps: true  // Ceci ajoute automatiquement createdAt et updatedAt
 });
 
 // Indexes for common queries

@@ -219,22 +219,22 @@ async function handleCheckoutSessionCompleted(session) {
     console.log('Status:', stripeSubscription.status);
 
     // Créer ou mettre à jour la subscription dans notre DB
-    const subscriptionData = {
-      parentId,
-      planId,
-      planName,
-      status: stripeSubscription.status,
-      stripeCustomerId: session.customer,
-      stripeSubscriptionId: session.subscription,
-      startDate: new Date(stripeSubscription.current_period_start * 1000),
-      endDate: new Date(stripeSubscription.current_period_end * 1000),
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
-    };
-
     const subscription = await Subscription.findOneAndUpdate(
       { parentId },
-      subscriptionData,
-      { upsert: true, new: true }
+      {
+        $set: {
+          parentId,
+          planId,
+          planName,
+          status: stripeSubscription.status,
+          stripeCustomerId: session.customer,
+          stripeSubscriptionId: session.subscription,
+          startDate: new Date(stripeSubscription.current_period_start * 1000),
+          endDate: new Date(stripeSubscription.current_period_end * 1000),
+          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
+        }
+      },
+      { upsert: true, new: true, runValidators: false }
     );
 
     console.log('✅ Subscription saved in DB:', subscription._id);
@@ -261,17 +261,17 @@ async function handleSubscriptionUpdated(stripeSubscription) {
   console.log('New status:', stripeSubscription.status);
 
   try {
-    const updateData = {
-      status: stripeSubscription.status,
-      startDate: new Date(stripeSubscription.current_period_start * 1000),
-      endDate: new Date(stripeSubscription.current_period_end * 1000),
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
-    };
-
     const subscription = await Subscription.findOneAndUpdate(
       { stripeSubscriptionId: stripeSubscription.id },
-      updateData,
-      { new: true }
+      {
+        $set: {
+          status: stripeSubscription.status,
+          startDate: new Date(stripeSubscription.current_period_start * 1000),
+          endDate: new Date(stripeSubscription.current_period_end * 1000),
+          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
+        }
+      },
+      { new: true, runValidators: false }
     );
 
     if (subscription) {
@@ -296,15 +296,15 @@ async function handleSubscriptionDeleted(stripeSubscription) {
   console.log('Subscription ID:', stripeSubscription.id);
 
   try {
-    const updateData = {
-      status: 'cancelled',
-      cancelledAt: Date.now()  // ✅ Utiliser Date.now() au lieu de new Date()
-    };
-
     const subscription = await Subscription.findOneAndUpdate(
       { stripeSubscriptionId: stripeSubscription.id },
-      updateData,
-      { new: true }
+      {
+        $set: {
+          status: 'cancelled',
+          cancelledAt: new Date()
+        }
+      },
+      { new: true, runValidators: false }
     );
 
     if (subscription) {
@@ -425,15 +425,15 @@ const cancelSubscription = async (req, res) => {
     });
 
     // Update the subscription in our database
-    const updateData = {
-      cancelAtPeriodEnd: true,
-      cancelledAt: Date.now()  // ✅ Utiliser Date.now()
-    };
-
     const updatedSubscription = await Subscription.findByIdAndUpdate(
       subscription._id,
-      updateData,
-      { new: true }
+      {
+        $set: {
+          cancelAtPeriodEnd: true,
+          cancelledAt: new Date()
+        }
+      },
+      { new: true, runValidators: false }
     ).populate('planId');
 
     console.log('✅ Subscription cancelled:', subscription.stripeSubscriptionId);
