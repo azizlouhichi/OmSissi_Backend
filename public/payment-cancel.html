@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement annulé - Om Sisi</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      padding: 50px 40px;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .cancel-icon {
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 30px;
+      animation: scaleIn 0.6s ease-out 0.2s both;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0);
+      }
+      to {
+        transform: scale(1);
+      }
+    }
+
+    .cancel-icon::before {
+      content: '✕';
+      font-size: 60px;
+      color: white;
+      font-weight: bold;
+    }
+
+    h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 15px;
+      font-weight: 700;
+    }
+
+    p {
+      color: #666;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .redirect-text {
+      color: #999;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    .button {
+      display: inline-block;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      color: white;
+      padding: 15px 40px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      border: none;
+      font-size: 16px;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(245, 87, 108, 0.3);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="cancel-icon"></div>
+    <h1>Paiement annulé</h1>
+    <p>Vous avez annulé le processus de paiement.<br>
+    Aucun montant n'a été débité de votre compte.</p>
+    
+    <button class="button" onclick="redirectToApp()">
+      Retourner à l'application
+    </button>
+    
+    <p class="redirect-text">Redirection automatique dans <span id="countdown">5</span> secondes...</p>
+  </div>
+
+  <script>
+    // Compte à rebours
+    let countdown = 5;
+    const countdownElement = document.getElementById('countdown');
+    
+    const interval = setInterval(() => {
+      countdown--;
+      countdownElement.textContent = countdown;
+      
+      if (countdown <= 0) {
+        clearInterval(interval);
+        redirectToApp();
+      }
+    }, 1000);
+
+    // Fonction de redirection
+    function redirectToApp() {
+      const deepLink = 'omsisi://subscription-cancel';
+      
+      console.log('Redirecting to:', deepLink);
+      
+      // Tenter la redirection vers l'app
+      window.location.href = deepLink;
+      
+      // Fallback si l'app ne s'ouvre pas
+      setTimeout(() => {
+        document.querySelector('.redirect-text').innerHTML = 
+          'Si l\'application ne s\'ouvre pas,<br>fermez cet onglet et retournez à l\'app manuellement.';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

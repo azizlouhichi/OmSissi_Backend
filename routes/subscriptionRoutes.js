@@ -13,8 +13,8 @@ const { protect } = require('../middleware/authMiddleware');
 // Public routes
 router.get('/plans', getAvailablePlans);
 
-// Webhook route (public - called by Stripe)
-router.post('/webhook', express.raw({type: 'application/json'}), handleWebhook);
+// ✅ Webhook route (PAS de middleware protect!)
+router.post('/webhook', handleWebhook);
 
 // Protected routes
 router.get('/my-subscription', protect, getMySubscription);
