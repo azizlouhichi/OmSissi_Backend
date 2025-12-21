@@ -1,187 +1,405 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Paiement réussi - Om Sisi</title>
+
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root{
+      --ink: #1F2937;
+      --sub: #6B7280;
+
+      /* Palette Om Sisi (teal + gold + peach) */
+      --teal: #12B4A6;
+      --tealDark: #0E8E83;
+
+      --gold: #E8B15C;
+      --gold2: #E59A3A;
+
+      --peach: #FFB86B;
+      --pink: #FF6FAE;
+      --sky: #7FD3FF;
+      --mint: #A6F7E6;
+
+      --card: rgba(255,255,255,.86);
+      --cardBorder: rgba(17,24,39,.08);
+      --shadow: 0 20px 60px rgba(0,0,0,.18);
     }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+    *{ margin:0; padding:0; box-sizing:border-box; }
+
+    body{
+      font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      color:var(--ink);
+      overflow:hidden;
+
+      /* Fond Om Sisi: ciel + mint */
+      background:
+        radial-gradient(1200px 600px at 15% 10%, rgba(127,211,255,.45), transparent 60%),
+        radial-gradient(900px 500px at 85% 15%, rgba(255,111,174,.25), transparent 60%),
+        radial-gradient(1000px 600px at 60% 95%, rgba(166,247,230,.55), transparent 60%),
+        linear-gradient(135deg, #EAF7F6 0%, #FFF7E8 60%, #F4F7FF 100%);
     }
 
-    .container {
-      background: white;
-      padding: 50px 40px;
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      text-align: center;
-      max-width: 500px;
-      width: 100%;
-      animation: slideUp 0.5s ease-out;
+    /* Petites étoiles/bulles décoratives */
+    .decor{
+      position:fixed; inset:0;
+      pointer-events:none;
+      opacity:.9;
+    }
+    .bubble{
+      position:absolute;
+      width:14px; height:14px;
+      border-radius:50%;
+      background: rgba(255,255,255,.55);
+      box-shadow: 0 10px 25px rgba(0,0,0,.07);
+      animation: float 7s ease-in-out infinite;
+    }
+    .bubble:nth-child(1){ left:8%; top:20%; width:18px; height:18px; animation-duration:8s; }
+    .bubble:nth-child(2){ left:18%; top:70%; width:10px; height:10px; animation-duration:6s; }
+    .bubble:nth-child(3){ left:82%; top:25%; width:16px; height:16px; animation-duration:9s; }
+    .bubble:nth-child(4){ left:74%; top:78%; width:12px; height:12px; animation-duration:7s; }
+    .bubble:nth-child(5){ left:50%; top:10%; width:9px; height:9px; animation-duration:6.5s; }
+
+    @keyframes float{
+      0%,100%{ transform: translateY(0); }
+      50%{ transform: translateY(-18px); }
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .container{
+      position:relative;
+      max-width:520px;
+      width:100%;
+      padding:44px 34px 28px;
+      border-radius:26px;
+      background: var(--card);
+      border: 1px solid var(--cardBorder);
+      box-shadow: var(--shadow);
+      text-align:center;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      animation: pop 0.55s ease-out;
     }
 
-    .success-icon {
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 30px;
-      animation: scaleIn 0.6s ease-out 0.2s both;
+    @keyframes pop{
+      from{ opacity:0; transform: translateY(18px) scale(.98); }
+      to{ opacity:1; transform: translateY(0) scale(1); }
     }
 
-    @keyframes scaleIn {
-      from {
-        transform: scale(0);
-      }
-      to {
-        transform: scale(1);
-      }
+    /* Bandeau haut “Om Sisi” */
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      margin-bottom:18px;
+      user-select:none;
+    }
+    .logo{
+      width:44px; height:44px;
+      border-radius:16px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      box-shadow: 0 14px 30px rgba(229,154,58,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .logo:after{
+      content:"";
+      position:absolute;
+      width:70px; height:70px;
+      border-radius:50%;
+      background: rgba(255,255,255,.22);
+      top:-40px; left:-20px;
+    }
+    .logo span{
+      font-size:22px;
+      color:#fff;
+      font-weight:900;
+      transform: translateY(-1px);
+    }
+    .brand .name{
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size:16px;
+      color: var(--ink);
     }
 
-    .success-icon::before {
-      content: '✓';
-      font-size: 60px;
-      color: white;
-      font-weight: bold;
+    .success-icon{
+      width:96px; height:96px;
+      border-radius:28px;
+      margin: 10px auto 18px;
+      background: linear-gradient(135deg, var(--teal), var(--tealDark));
+      box-shadow: 0 18px 40px rgba(18,180,166,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      animation: scaleIn .6s ease-out .1s both;
+    }
+    .success-icon:before{
+      content:"✓";
+      color:#fff;
+      font-size:52px;
+      font-weight:900;
+      transform: translateY(-2px);
+    }
+    .success-icon:after{
+      content:"";
+      position:absolute;
+      inset:-14px;
+      border-radius:36px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), transparent 55%);
+      pointer-events:none;
     }
 
-    h1 {
-      color: #333;
-      font-size: 28px;
-      margin-bottom: 15px;
-      font-weight: 700;
+    @keyframes scaleIn{
+      from{ transform: scale(.7); opacity:0; }
+      to{ transform: scale(1); opacity:1; }
     }
 
-    p {
-      color: #666;
-      font-size: 16px;
-      line-height: 1.6;
-      margin-bottom: 30px;
+    h1{
+      font-size:26px;
+      font-weight:900;
+      margin-bottom:10px;
+      color: var(--ink);
     }
 
-    .loader {
-      margin: 30px auto;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
+    p{
+      color: var(--sub);
+      font-size:15px;
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:999px;
+      background: rgba(18,180,166,.10);
+      border: 1px solid rgba(18,180,166,.18);
+      color: #0F766E;
+      font-weight:800;
+      font-size:13px;
+      margin: 10px 0 14px;
+    }
+    .pill .dot{
+      width:10px; height:10px;
+      border-radius:50%;
+      background: var(--teal);
+      box-shadow: 0 8px 18px rgba(18,180,166,.25);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse{
+      0%,100%{ transform: scale(1); opacity:1; }
+      50%{ transform: scale(.65); opacity:.6; }
+    }
+
+    .loader{
+      width:44px; height:44px;
+      margin: 16px auto 10px;
+      border: 4px solid rgba(17,24,39,.08);
+      border-top: 4px solid var(--gold2);
+      border-radius:50%;
       animation: spin 1s linear infinite;
     }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    @keyframes spin{
+      0%{ transform: rotate(0deg); }
+      100%{ transform: rotate(360deg); }
     }
 
-    .redirect-text {
-      color: #999;
-      font-size: 14px;
-      margin-top: 20px;
+    .redirect-text{
+      font-size:13px;
+      color: rgba(107,114,128,.95);
+      margin-top: 12px;
     }
 
-    .session-id {
-      background: #f5f5f5;
-      padding: 10px;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 12px;
-      color: #666;
-      margin-top: 20px;
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top:16px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:14px;
+      padding:12px 14px;
+      font-weight:900;
+      font-size:14px;
+      transition: transform .08s ease, box-shadow .2s ease, opacity .2s ease;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
+
+    .btn-primary{
+      color:#fff;
+      background: linear-gradient(135deg, var(--teal), var(--tealDark));
+      box-shadow: 0 16px 34px rgba(18,180,166,.24);
+    }
+    .btn-ghost{
+      background: rgba(255,255,255,.65);
+      border: 1px solid rgba(17,24,39,.10);
+      color: var(--ink);
+    }
+
+    .session-id{
+      margin-top:16px;
+      padding:10px 12px;
+      border-radius:12px;
+      background: rgba(17,24,39,.04);
+      border: 1px dashed rgba(17,24,39,.14);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color: rgba(31,41,55,.75);
       word-break: break-all;
+      display:none;
+      text-align:left;
+    }
+
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color: rgba(107,114,128,.9);
+    }
+
+    @media (max-width: 420px){
+      .container{ padding:40px 22px 22px; }
+      h1{ font-size:24px; }
     }
   </style>
 </head>
+
 <body>
-  <div class="container">
+  <div class="decor" aria-hidden="true">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+  </div>
+
+  <div class="container" id="card">
+    <div class="brand">
+      <div class="logo"><span>OS</span></div>
+      <div class="name">Om Sisi</div>
+    </div>
+
     <div class="success-icon"></div>
-    <h1>Paiement réussi !</h1>
-    <p>Votre abonnement Om Sisi a été activé avec succès.<br>
-    Vous allez être redirigé vers l'application.</p>
-    
-    <div class="loader"></div>
-    
-    <p class="redirect-text">Redirection automatique dans <span id="countdown">3</span> secondes...</p>
-    
-    <div id="session-info" class="session-id" style="display:none;"></div>
+
+    <h1>Paiement confirmé 🎉</h1>
+    <p>
+      Votre abonnement a été activé avec succès.<br>
+      Vous allez être redirigé vers l’application Om Sisi.
+    </p>
+
+    <div class="pill">
+      <span class="dot"></span>
+      <span>Activation en cours…</span>
+    </div>
+
+    <div class="loader" aria-label="Chargement"></div>
+
+    <p class="redirect-text">
+      Redirection automatique dans <span id="countdown">3</span> secondes…
+    </p>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="openNow">Ouvrir l’app maintenant</button>
+      <button class="btn btn-ghost" id="copyLink">Copier le lien (debug)</button>
+    </div>
+
+    <div class="hint" id="fallbackHint" style="display:none;">
+      Si l’application ne s’ouvre pas, revenez manuellement à Om Sisi.
+    </div>
+
+    <div id="session-info" class="session-id"></div>
   </div>
 
   <script>
-    // Récupérer les paramètres de l'URL
+    // Params URL
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session_id');
-    const parentId = urlParams.get('parent_id');
-    
-    // Afficher le session ID si présent (pour debug)
-    if (sessionId) {
-      const sessionInfo = document.getElementById('session-info');
-      sessionInfo.textContent = `Session: ${sessionId}`;
-      // Décommenter pour voir le session ID:
-      // sessionInfo.style.display = 'block';
+    const parentId = urlParams.get('parent_id'); // (pas obligatoire ici, mais on le garde)
+
+    // Build deep link
+    function buildDeepLink() {
+      let deepLink = 'omsisi://subscription-success';
+      const qs = new URLSearchParams();
+      if (sessionId) qs.set('session_id', sessionId);
+      if (parentId) qs.set('parent_id', parentId);
+      const q = qs.toString();
+      if (q) deepLink += `?${q}`;
+      return deepLink;
     }
 
-    // Compte à rebours
+    const deepLink = buildDeepLink();
+
+    // Debug zone (désactivée par défaut)
+    const sessionInfo = document.getElementById('session-info');
+    if (sessionId) {
+      sessionInfo.textContent = `Session: ${sessionId}`;
+      // sessionInfo.style.display = 'block'; // <- décommente si tu veux afficher
+    }
+
+    // Countdown
     let countdown = 3;
     const countdownElement = document.getElementById('countdown');
-    
+
     const interval = setInterval(() => {
       countdown--;
-      countdownElement.textContent = countdown;
-      
+      countdownElement.textContent = String(countdown);
+
       if (countdown <= 0) {
         clearInterval(interval);
         redirectToApp();
       }
     }, 1000);
 
-    // Fonction de redirection
     function redirectToApp() {
-      let deepLink = 'omsisi://subscription-success';
-      
-      if (sessionId) {
-        deepLink += `?session_id=${sessionId}`;
-      }
-      
       console.log('Redirecting to:', deepLink);
-      
-      // Tenter la redirection vers l'app
       window.location.href = deepLink;
-      
-      // Fallback si l'app ne s'ouvre pas après 2 secondes
+
+      // Fallback hint
       setTimeout(() => {
-        document.querySelector('.redirect-text').innerHTML = 
-          'Si l\'application ne s\'ouvre pas,<br>fermez cet onglet et retournez à l\'app manuellement.';
+        document.getElementById('fallbackHint').style.display = 'block';
+        const rt = document.querySelector('.redirect-text');
+        if (rt) rt.innerHTML = "Si l’application ne s’ouvre pas,<br>revenez à Om Sisi manuellement.";
       }, 2000);
     }
 
-    // Permettre de cliquer pour rediriger immédiatement
-    document.querySelector('.container').addEventListener('click', () => {
+    // Buttons
+    document.getElementById('openNow').addEventListener('click', () => {
+      clearInterval(interval);
+      redirectToApp();
+    });
+
+    document.getElementById('copyLink').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(deepLink);
+        alert('Lien copié ✅');
+      } catch (e) {
+        // fallback
+        prompt('Copiez le lien :', deepLink);
+      }
+    });
+
+    // Click anywhere to open (comme avant)
+    document.getElementById('card').addEventListener('click', (e) => {
+      // éviter double click quand on clique sur un bouton
+      if (e.target && (e.target.id === 'openNow' || e.target.id === 'copyLink')) return;
       clearInterval(interval);
       redirectToApp();
     });
