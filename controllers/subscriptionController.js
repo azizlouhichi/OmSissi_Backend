@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 
 // =================== HELPERS ===================
 function toObjectId(id) {
-  // ✅ safe ObjectId conversion
   if (!id) return null;
   if (id instanceof mongoose.Types.ObjectId) return id;
   if (!mongoose.Types.ObjectId.isValid(id)) return null;
@@ -55,7 +54,6 @@ const createCheckoutSession = async (req, res) => {
 
     console.log('💳 Creating checkout session for:', { parentId, planName });
 
-    // Find the selected plan
     const plan = await SubscriptionPlan.findOne({
       _id: planId,
       name: planName,
@@ -69,7 +67,6 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Get or create customer in Stripe
     let parent = await Parent.findById(parentId);
     if (!parent) {
       return res.status(404).json({ success: false, message: 'Parent not found' });
@@ -92,7 +89,6 @@ const createCheckoutSession = async (req, res) => {
       console.log('✅ Stripe customer created:', stripeCustomerId);
     }
 
-    // ✅ URLs web (pas deep link)
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
     const successUrl = `${baseUrl}/payment-success.html?session_id={CHECKOUT_SESSION_ID}&parent_id=${parentId}`;
     const cancelUrl = `${baseUrl}/payment-cancel.html`;
@@ -162,7 +158,6 @@ const handleWebhook = async (req, res) => {
 
   let event;
   try {
-    // ✅ IMPORTANT: req.body ici DOIT être un Buffer (express.raw)
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     console.log('✅ Webhook signature verified:', event.type);
   } catch (err) {
@@ -229,13 +224,11 @@ async function handleCheckoutSessionCompleted(session) {
   }
 
   try {
-    // Récupérer la subscription Stripe
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
 
     console.log('📦 Stripe subscription retrieved:', stripeSubscription.id);
     console.log('Status:', stripeSubscription.status);
 
-    // ✅ Data à stocker (dates -> Date)
     const subscriptionData = {
       parentId: parentObjectId,
       planId: planObjectId,
@@ -249,7 +242,6 @@ async function handleCheckoutSessionCompleted(session) {
       updatedAt: new Date(),
     };
 
-    // ✅ MongoDB native (évite bugs Mongoose dates)
     const result = await Subscription.collection.findOneAndUpdate(
       { parentId: parentObjectId },
       { $set: subscriptionData, $setOnInsert: { createdAt: new Date() } },
@@ -264,7 +256,6 @@ async function handleCheckoutSessionCompleted(session) {
 
     console.log('✅ Subscription saved in DB:', saved._id.toString());
 
-    // ✅ Update parent
     await Parent.findByIdAndUpdate(parentObjectId, {
       plan: planName,
       subscriptionId: saved._id,
@@ -498,6 +489,163 @@ const resumeSubscription = async (req, res) => {
   }
 };
 
+// @desc    Get all subscriptions (Admin)
+// @route   GET /api/subscriptions/all
+// @access  Private
+const getAllSubscriptions = async (req, res) => {
+  try {
+    const { status, planName, page = 1, limit = 50 } = req.query;
+    
+    const filter = {};
+    if (status) filter.status = status;
+    if (planName) filter.planName = planName;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const subscriptions = await Subscription.find(filter)
+      .populate('parentId', 'firstName lastName email')
+      .populate('planId', 'displayName price currency interval')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Subscription.countDocuments(filter);
+
+    res.json({
+      success: true,
+      message: 'All subscriptions retrieved successfully',
+      data: {
+        subscriptions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+          totalSubscriptions: total,
+          perPage: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Get all subscriptions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving subscriptions',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get subscription statistics
+// @route   GET /api/subscriptions/stats
+// @access  Private
+const getSubscriptionStats = async (req, res) => {
+  try {
+    const statusStats = await Subscription.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const planStats = await Subscription.aggregate([
+      {
+        $group: {
+          _id: '$planName',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const activeSubscriptions = await Subscription.find({ 
+      status: 'active' 
+    }).populate('planId');
+
+    let monthlyRevenue = 0;
+    activeSubscriptions.forEach(sub => {
+      if (sub.planId && sub.planId.price) {
+        const price = sub.planId.price / 100;
+        if (sub.planId.interval === 'month') {
+          monthlyRevenue += price;
+        } else if (sub.planId.interval === 'year') {
+          monthlyRevenue += price / 12;
+        }
+      }
+    });
+
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const endingSoon = await Subscription.countDocuments({
+      status: 'active',
+      endDate: { $lte: thirtyDaysFromNow },
+      cancelAtPeriodEnd: false,
+    });
+
+    const pendingCancellation = await Subscription.countDocuments({
+      status: 'active',
+      cancelAtPeriodEnd: true,
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription statistics retrieved successfully',
+      data: {
+        byStatus: statusStats,
+        byPlan: planStats,
+        revenue: {
+          estimatedMonthlyRevenue: monthlyRevenue.toFixed(2),
+          currency: 'EUR',
+        },
+        alerts: {
+          endingSoon,
+          pendingCancellation,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Get subscription stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving statistics',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get subscription by ID
+// @route   GET /api/subscriptions/:id
+// @access  Private
+const getSubscriptionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const subscription = await Subscription.findById(id)
+      .populate('parentId', 'firstName lastName email')
+      .populate('planId');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subscription not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Subscription retrieved successfully',
+      data: subscription,
+    });
+  } catch (error) {
+    console.error('❌ Get subscription by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving subscription',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAvailablePlans,
   createCheckoutSession,
@@ -505,4 +653,7 @@ module.exports = {
   getMySubscription,
   cancelSubscription,
   resumeSubscription,
+  getAllSubscriptions,
+  getSubscriptionStats,
+  getSubscriptionById,
 };
