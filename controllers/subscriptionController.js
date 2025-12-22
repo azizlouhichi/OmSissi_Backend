@@ -616,6 +616,31 @@ const getSubscriptionStats = async (req, res) => {
   }
 };
 
+// @desc    Admin: update a subscription by id
+// @route   PUT /api/subscriptions/:id
+// @access  Private/Admin
+const updateSubscriptionById = async (req, res) => {
+  try {
+    const subscription = await Subscription.findById(req.params.id);
+    if (!subscription) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    // Allow admin to update status, endDate, cancelAtPeriodEnd, or other safe fields
+    const allowed = ['status', 'endDate', 'startDate', 'cancelAtPeriodEnd', 'cancelledAt', 'planId', 'planName', 'autoRenew'];
+    Object.keys(req.body).forEach(key => {
+      if (allowed.includes(key)) {
+        subscription[key] = req.body[key];
+      }
+    });
+
+    await subscription.save();
+    const populated = await Subscription.findById(subscription._id).populate('planId').populate('parentId', 'firstName lastName email');
+    res.json({ success: true, message: 'Subscription updated', data: populated });
+  } catch (error) {
+    console.error('Update subscription error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating subscription', error: error.message });
+  }
+};
+
   // Final exports (all controller methods)
   module.exports = {
     getAvailablePlans,
@@ -631,5 +656,6 @@ const getSubscriptionStats = async (req, res) => {
     deletePlanById,
     // Admin subscriptions
     getSubscriptions,
-    getSubscriptionStats
+    getSubscriptionStats,
+    updateSubscriptionById
   };
